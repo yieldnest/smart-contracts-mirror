@@ -1,0 +1,24 @@
+[submodule "yieldnest-vault"]
+	path = yieldnest-vault
+	url = https://github.com/yieldnest/yieldnest-vault.git
+[submodule "yieldnest-flex-strategy"]
+	path = yieldnest-flex-strategy
+	url = https://github.com/yieldnest/yieldnest-flex-strategy.git
+[submodule "yieldnest-erc4626-wrapper-strategy"]
+	path = yieldnest-erc4626-wrapper-strategy
+	url = https://github.com/yieldnest/yieldnest-erc4626-wrapper-strategy.git
+[submodule "yieldnest-vault-periphery"]
+	path = yieldnest-vault-periphery
+	url = https://github.com/yieldnest/yieldnest-vault-periphery.git
+[submodule "yieldnest-airdrop"]
+	path = yieldnest-airdrop
+	url = https://github.com/yieldnest/yieldnest-airdrop.git
+[submodule "safeguard"]
+	path = safeguard
+	url = https://github.com/yieldnest/safeguard.git
+[submodule "wrapped-token"]
+	path = wrapped-token
+	url = https://github.com/yieldnest/wrapped-token.git
+[submodule "yieldnest-eigenlayer-lrt"]
+	path = yieldnest-eigenlayer-lrt
+	url = https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git
