@@ -1,0 +1,8 @@
+{
+  "admin": "0xfcad670592a3b24869C0b51a6c6FDED4F95D6975",
+  "name": "ynETHx-wsteth-LVG1",
+  "safeguard-implementation": "0x32bd56D0b478EF27F5eD864b306294f3A5a31207",
+  "safeguard-proxy": "0x5BC67cCfEE16B268b9C3A56BF9919265fFd57488",
+  "safeguard-proxyAdmin": "0x43360277899c11D9B4298eaeeB392e4200441cCC",
+  "timelock": "0xbDf38eDe983bCcf3C8D2822D1D5A79B2774D352D"
+}

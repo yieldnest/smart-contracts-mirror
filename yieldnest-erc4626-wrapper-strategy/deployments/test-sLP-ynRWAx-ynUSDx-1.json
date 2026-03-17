@@ -1,0 +1,10 @@
+{
+  "admin": "0xfcad670592a3b24869C0b51a6c6FDED4F95D6975",
+  "deployer": "0x50EEf481cae4250d252Ae577A09bF514f224C6C4",
+  "rateProvider": "0xDB8cFf278adCCF9E9b5da745B44E754fC4EE3C76",
+  "sLP-ynRWAx-ynUSDx-proxy": "0x4f22fB6CDf1485baf7B25c58c66CdA38f88Acbc3",
+  "sLP-ynRWAx-ynUSDx-proxyAdmin": "0x945D6bC7Bc0294dcBe9654fEC6ea7f7bFc7b30cf",
+  "symbol": "sLP-ynRWAx-ynUSDx",
+  "targetVault": "0xCa21e91eB3C601978C8293F0C3a544bA28cCC8ED",
+  "timelock": "0xA8452Ec99ce0C64f20701dB7dD3abDb607c00496"
+}

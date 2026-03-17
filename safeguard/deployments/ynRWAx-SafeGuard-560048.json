@@ -1,0 +1,10 @@
+{
+  "admin": "0x72fdBD51085bDa5eEEd3b55D1a46E2e92f0837a5",
+  "deployer": "0xd7d4A7f14265B0A69AE482b85B0a8496c3F99fb9",
+  "gnosisSafeAddress": "0x704b680E59f048Cd6b3F41bd6bD11D0a566545FC",
+  "name": "ynRWAx-SafeGuard",
+  "safeguard-implementation": "0x8C9BbCC858E1bFE43A2D9e065a38095f118C9A57",
+  "safeguard-proxy": "0x2f1e12ed301d8A48F145cE31D519337CE5E80758",
+  "safeguard-proxyAdmin": "0x5d5106efD3707C4b5B366106db2d14ff2633B07f",
+  "timelock": "0x45EFb378248775c240Dd36C8E089Ad8afD97B3f1"
+}

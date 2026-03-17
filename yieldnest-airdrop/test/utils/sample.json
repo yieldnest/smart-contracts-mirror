@@ -1,0 +1,3352 @@
+{
+  "userAmounts": [
+    {
+      "user": "0x00000000051CBcE3fD04148CcE2c0adc7c651829",
+      "amount": 38593
+    },
+    {
+      "user": "0x000da9776cb42F19a7566385D0191E66F2Cb007a",
+      "amount": 901128
+    },
+    {
+      "user": "0x0079CE80043EDc3325598e4A3b6293ab779bf174",
+      "amount": 8511473
+    },
+    {
+      "user": "0x0097495DA85482aD44275B640dc9b95d0A462128",
+      "amount": 45375
+    },
+    {
+      "user": "0x009d13E9bEC94Bf16791098CE4E5C168D27A9f07",
+      "amount": 1095118
+    },
+    {
+      "user": "0x00A7949aa0F80C274ef6048F6AA3eb35EbC65F48",
+      "amount": 10119
+    },
+    {
+      "user": "0x0102F2b71eB1b5A90969a945ff420E516e4b9e72",
+      "amount": 0
+    },
+    {
+      "user": "0x01285b45EeE8f26b7fBF1Ba0146bDF8Fa45b2e13",
+      "amount": 1727
+    },
+    {
+      "user": "0x01673Bdd7973a67908D4B183BB8DAAa72E4BAD99",
+      "amount": 109759
+    },
+    {
+      "user": "0x017057044355d6bc0457f009975FB342262ef3b1",
+      "amount": 10636
+    },
+    {
+      "user": "0x01A95F37683371671187e7fD7e595d4475462648",
+      "amount": 423
+    },
+    {
+      "user": "0x0205b690062C25133471e8436d5F4d4Db7bED4e2",
+      "amount": 217461
+    },
+    {
+      "user": "0x0247EB3D8e69e8f930eBD634bEC77e4C8DAd7277",
+      "amount": 9691
+    },
+    {
+      "user": "0x024AE3d077170E03f565D977994A11eFD19505Da",
+      "amount": 216
+    },
+    {
+      "user": "0x02666f34bC68B494B858f6a36780BAEcE2CB57eD",
+      "amount": 4
+    },
+    {
+      "user": "0x02758FBC0bb97A57D93351981E4E2eeC47a4a921",
+      "amount": 625380
+    },
+    {
+      "user": "0x02E0c302380aa679189D9caA349A0Da5A6A19108",
+      "amount": 8575
+    },
+    {
+      "user": "0x02EB568d31D379896F1b41467b7f177647E2ce32",
+      "amount": 3008
+    },
+    {
+      "user": "0x0329aCa1a15139e2288E58c8a8a057b7723af4f2",
+      "amount": 44435
+    },
+    {
+      "user": "0x036378Fcff3D5CC29198dd09139b9Bc9DA8eA84f",
+      "amount": 0
+    },
+    {
+      "user": "0x03855B0e3BD90591999a266b1a2701EE0ef18fc6",
+      "amount": 110088
+    },
+    {
+      "user": "0x0430C3744A4CDE002f354cBfB09c47c699AeE5DA",
+      "amount": 3746
+    },
+    {
+      "user": "0x0452957f4e3f80d3e066CA9fC0Ca107a051bbd61",
+      "amount": 59529
+    },
+    {
+      "user": "0x04d03771c3CcB9c6F3eD7240D4258B5c418EC134",
+      "amount": 35162
+    },
+    {
+      "user": "0x04E27191F1CBE2C6a31e3243A832dA1Db5C9213E",
+      "amount": 760
+    },
+    {
+      "user": "0x04FcF80EC93BB60663AECFCb9895e50b61d79357",
+      "amount": 2148
+    },
+    {
+      "user": "0x052Bde19009BE2895a7B3C089Be89bA00463a87b",
+      "amount": 22046
+    },
+    {
+      "user": "0x0589E6B64BEb2E1ef849528912c84B3A55138F69",
+      "amount": 21321
+    },
+    {
+      "user": "0x05b6060424B88C5d0D7dc6F7a17410240ba34C44",
+      "amount": 1511
+    },
+    {
+      "user": "0x05f200Ad90E70750110E02e73E17caA81383Ebc8",
+      "amount": 1184595
+    },
+    {
+      "user": "0x06092A2f3AaDcCc4ec3458a2A46d87B4Fa2A7E28",
+      "amount": 2073
+    },
+    {
+      "user": "0x0692cCB83E0E39E6Eb8861401b220d91726b2AD3",
+      "amount": 42306
+    },
+    {
+      "user": "0x06bF0460DA579c52DE0356423dfe9979b54C84d3",
+      "amount": 20354
+    },
+    {
+      "user": "0x075818ADa8d7c6780D0D7a4e0aB09182e07F71C5",
+      "amount": 152877
+    },
+    {
+      "user": "0x0769C5d106ffFb68421C59B04845d7857AfDa15A",
+      "amount": 1314162
+    },
+    {
+      "user": "0x079bb6DB4128480eB4A8eBe72018084B15A5A5fF",
+      "amount": 63086
+    },
+    {
+      "user": "0x07cb658679F280F5163664630Ba76Bc23E4aa51D",
+      "amount": 48043
+    },
+    {
+      "user": "0x07F7A7E896a47b36D74c7d7cC2F4d92b0E893f72",
+      "amount": 10863
+    },
+    {
+      "user": "0x0838788aAD1019f364952d3DfA33a887cbe71023",
+      "amount": 3115
+    },
+    {
+      "user": "0x0865aaE73d758E42b97841F347605a05AB8f755a",
+      "amount": 738
+    },
+    {
+      "user": "0x089127F0B4d933d2bEaf54267Ea8bdEd85744899",
+      "amount": 130289
+    },
+    {
+      "user": "0x08D41A349a80e4A868B05f9aFA52fb8341815dA4",
+      "amount": 0
+    },
+    {
+      "user": "0x0991892B02A2B752Ad68f2b01dD8457F9c22c26A",
+      "amount": 10118
+    },
+    {
+      "user": "0x09E4560469666b2019aB38F4173Fa160c2C5bEe6",
+      "amount": 164623
+    },
+    {
+      "user": "0x09E59929e632E351d76e81518D8DC1AcFF2935A4",
+      "amount": 4336
+    },
+    {
+      "user": "0x09f3aD5C718Ee63d5a4905330fA4eEe246757906",
+      "amount": 13504
+    },
+    {
+      "user": "0x0A251dF99A88A20a93876205Fb7f5Faf2E85A481",
+      "amount": 18336
+    },
+    {
+      "user": "0x0A4647D4a87eD23e3a89be688374D9F01FBDeA49",
+      "amount": 544424
+    },
+    {
+      "user": "0x0a9bd7Ee18d521B578c6c1521880E5e4A811772e",
+      "amount": 4738
+    },
+    {
+      "user": "0x0ab448C823C800F957FDBd9b2f1587469032Ab11",
+      "amount": 38614
+    },
+    {
+      "user": "0x0ac17fC15825d73242B31360B5B53c855e0412E3",
+      "amount": 6339
+    },
+    {
+      "user": "0x0b09e92a7C94dCD51F3AF7846b0d194136464e91",
+      "amount": 43695
+    },
+    {
+      "user": "0x0B3492Cb3cE07Cd3d04Ed6d41E40687b688B7A7b",
+      "amount": 489225
+    },
+    {
+      "user": "0x0B4D8ddD200802C7F9Bec2D127603d194F1C42f4",
+      "amount": 9163
+    },
+    {
+      "user": "0x0b4eCF28692614C10Deb7d8579F4878Be3Fd2DE9",
+      "amount": 219539
+    },
+    {
+      "user": "0x0b5C14700Fd6f902AD553F1F6bCbCB287579808d",
+      "amount": 69
+    },
+    {
+      "user": "0x0BD652f291B15783Bd84217840f898C45AA34Fa7",
+      "amount": 1111912
+    },
+    {
+      "user": "0x0C36efFD8216D6CE59b982F4855332D018D33554",
+      "amount": 5298
+    },
+    {
+      "user": "0x0Cb3fEAD6eB67e27442eFB6fF5c01Baa823e54a5",
+      "amount": 51252
+    },
+    {
+      "user": "0x0e29304fee49a7F3bfb4BD0C0C3d574597Dc2bDF",
+      "amount": 10118
+    },
+    {
+      "user": "0x0E5Aee42454e2cC6172b72c46D7D4c402eE637b5",
+      "amount": 366404
+    },
+    {
+      "user": "0x0eCddcF41754360AB129d7Ca4c8ABf220F9c32BD",
+      "amount": 3926
+    },
+    {
+      "user": "0x0f602F78A148d7d5f42Edf93BB0D733EC703bab7",
+      "amount": 18017
+    },
+    {
+      "user": "0x0f604eA658ceC0A4f49A4f11a285dFDB3A515404",
+      "amount": 36457
+    },
+    {
+      "user": "0x0FBeABcaFCf817d47E10a7bCFC15ba194dbD4EEF",
+      "amount": 0
+    },
+    {
+      "user": "0x0fD340448c7bd8255247E28D69e7Fc503C470E66",
+      "amount": 8780264
+    },
+    {
+      "user": "0x1006D3965991916f69d946B3E208ba8712a7FD6f",
+      "amount": 1051872
+    },
+    {
+      "user": "0x10115EA72868edacc4FDA8F398043CA593f5B830",
+      "amount": 14808
+    },
+    {
+      "user": "0x1012e9126c694ffaF65D6054A0f1f3Ff49c5D677",
+      "amount": 65856
+    },
+    {
+      "user": "0x106e6a004ac885eE72Fb9E176a44AeF80cccfAce",
+      "amount": 23397
+    },
+    {
+      "user": "0x10808E48ac633E31BC435128A75a70FBA0E0b39B",
+      "amount": 896823
+    },
+    {
+      "user": "0x10FcA77012B74EdE8aE3CfF6D42A7c264f1492Bd",
+      "amount": 210219
+    },
+    {
+      "user": "0x110d68F5DFA414E943181Dec3346D4CA0d6DE37F",
+      "amount": 955
+    },
+    {
+      "user": "0x1111111254EEB25477B68fb85Ed929f73A960582",
+      "amount": 0
+    },
+    {
+      "user": "0x11443ad12aEf3663A8cD767e6f9508fC799C4B18",
+      "amount": 1006611
+    },
+    {
+      "user": "0x1180CCc790F079AEf7Fe748d5a1107C760286D4f",
+      "amount": 0
+    },
+    {
+      "user": "0x11d67Fa925877813B744aBC0917900c2b1D6Eb81",
+      "amount": 1086595
+    },
+    {
+      "user": "0x1215409f7897653c08Cd955C20cBaF18817A2D14",
+      "amount": 53029
+    },
+    {
+      "user": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+      "amount": 0
+    },
+    {
+      "user": "0x12afa4C31B45bf5b0ffF16586d91BADdEfC7bBE4",
+      "amount": 0
+    },
+    {
+      "user": "0x1307076d16E9baa9Acd96Cf19E35eA976ce8B54E",
+      "amount": 10119
+    },
+    {
+      "user": "0x131a39fc253e3C2eA37c61832F89867142357aB2",
+      "amount": 188158
+    },
+    {
+      "user": "0x1327C85CE6F3C83faBC4f5C294F57ac05bCb51eB",
+      "amount": 1313
+    },
+    {
+      "user": "0x1339694225e7Ea2DE64bb8A808F09f33D1a7fE07",
+      "amount": 1855
+    },
+    {
+      "user": "0x137C73E9e650603bC1f1D3812F81F245FbEe8f9d",
+      "amount": 1076796
+    },
+    {
+      "user": "0x1471CF61aE860dfd932b50699a67047D35b0EE5e",
+      "amount": 2159
+    },
+    {
+      "user": "0x1474ba7f53dCD016A156E64e7d40a1543df58ACd",
+      "amount": 10260
+    },
+    {
+      "user": "0x161b4e1E08b90B99E53cbc663dd7bdd7F11da2db",
+      "amount": 9804
+    },
+    {
+      "user": "0x16342Da12fA8c0043d7449C609a8343590176572",
+      "amount": 9929
+    },
+    {
+      "user": "0x1691565c9E5846b348Bf21707521e492614df376",
+      "amount": 6663
+    },
+    {
+      "user": "0x16C6521Dff6baB339122a0FE25a9116693265353",
+      "amount": 0
+    },
+    {
+      "user": "0x16EC5EE1cC431cA95de00b6C88d21D0B4d3Fc2a6",
+      "amount": 17288
+    },
+    {
+      "user": "0x172F41A3FD1A779c10E04447f7E28bf47367e35f",
+      "amount": 0
+    },
+    {
+      "user": "0x177B0Ea6F750aFF4De30754b511bFba060147297",
+      "amount": 658492
+    },
+    {
+      "user": "0x17aA5ECB08323ADe6b16C9e6cA65822F203Fabc3",
+      "amount": 5232
+    },
+    {
+      "user": "0x17E9FFea74fdC26848B7cB15DA018E5dCfAE92c9",
+      "amount": 875374
+    },
+    {
+      "user": "0x17f2FaaeE2C6d6d76eE3cb72551feAFbfC92e0E3",
+      "amount": 221650
+    },
+    {
+      "user": "0x1817720fcdE7421Eb4DE6656eEE320a677F0b668",
+      "amount": 4298
+    },
+    {
+      "user": "0x182dBccd5b62686b59Dd397B8c57fb00Daf82eF5",
+      "amount": 0
+    },
+    {
+      "user": "0x185F236AD1A5d8c4B115083b2b45DE6A6C896ACe",
+      "amount": 118077
+    },
+    {
+      "user": "0x18B6e80681a496A160D85240d0bd80611794D211",
+      "amount": 15728
+    },
+    {
+      "user": "0x18d1115D32eC45438a7874bB36eB7beef21F4ba2",
+      "amount": 4056
+    },
+    {
+      "user": "0x1973e64decB7c2C435F364eEcdb450a1f54e1973",
+      "amount": 486709
+    },
+    {
+      "user": "0x199860f9635b20fCd457a93C46b9cf7c99bC1998",
+      "amount": 61834
+    },
+    {
+      "user": "0x19A1f7D11FF85A999B507A1ab4a2827DeF362b87",
+      "amount": 7203
+    },
+    {
+      "user": "0x19d43C5858a2Ef050288B5e19C710e3F90937DF4",
+      "amount": 162
+    },
+    {
+      "user": "0x19f184B42f59ec220d11BFEe1096465Fd2e0c4B5",
+      "amount": 209614
+    },
+    {
+      "user": "0x1A046B460d1f7D0BF77873d34376Fc53D2a897C7",
+      "amount": 34946
+    },
+    {
+      "user": "0x1A162A5FdaEbb0113f7B83Ed87A43BCF0B6a4D1E",
+      "amount": 554341
+    },
+    {
+      "user": "0x1aa4a66Ef0cfA99cA9D39FdAD2B05489744C972a",
+      "amount": 1297
+    },
+    {
+      "user": "0x1Ae6DCBc88d6f81A7BCFcCC7198397D776F3592E",
+      "amount": 4859
+    },
+    {
+      "user": "0x1b0B29aD39aeCa5351D99D0b7db55b2E1B5f78CC",
+      "amount": 1084471
+    },
+    {
+      "user": "0x1cE12640Ddfc78E04F6ecC1872e355cA051cF6AE",
+      "amount": 77
+    },
+    {
+      "user": "0x1E123b0a8da1700f5518CDA2663F4B76e94e83D8",
+      "amount": 29030
+    },
+    {
+      "user": "0x1EEFe3ca6325B58BAf330e48f16A521Dcf84fDbd",
+      "amount": 63844
+    },
+    {
+      "user": "0x1f2F10D1C40777AE1Da742455c65828FF36Df387",
+      "amount": 0
+    },
+    {
+      "user": "0x1FABb8cf927dF47e3707Cfe4Ab847112e08e9057",
+      "amount": 688754
+    },
+    {
+      "user": "0x20017985C762a38a473D1e20673e875d9Ad0d4dc",
+      "amount": 59954
+    },
+    {
+      "user": "0x201B28082aE4f33A4F7C0d09bB86Ad287C70C0d6",
+      "amount": 35273
+    },
+    {
+      "user": "0x2134c65171022e007691aA7a8501bfDE3866A7Ea",
+      "amount": 13304
+    },
+    {
+      "user": "0x2163e5710a96aCE904c9a6C49Bb7F26A55Fd6f45",
+      "amount": 223
+    },
+    {
+      "user": "0x21981bBd049FE0c03Ef832069B46344D2957c207",
+      "amount": 1115014
+    },
+    {
+      "user": "0x21A01f63b263D93e124471E456578024121a6b78",
+      "amount": 952779
+    },
+    {
+      "user": "0x220Cf3ff755410721846476Da78d6BEe4C07f84b",
+      "amount": 13911
+    },
+    {
+      "user": "0x22f24C8695Aa32d0742eedDcBdFF972123B4424E",
+      "amount": 48948
+    },
+    {
+      "user": "0x23548A256CcBcD708b2909de89Cc1Bb424d2d668",
+      "amount": 8284
+    },
+    {
+      "user": "0x236812fF178F2DA418B8E238dFE068687cb2848b",
+      "amount": 689
+    },
+    {
+      "user": "0x23824A6E79c09Fab1CbF55d701c141537E73B10d",
+      "amount": 54885
+    },
+    {
+      "user": "0x23b6d8e09CB33B1550DE19aC25cC3F41ae4603Bb",
+      "amount": 92230
+    },
+    {
+      "user": "0x23cFD4Fec0B37B86Fc7dc48bC644d5c6d94ac0dF",
+      "amount": 477578
+    },
+    {
+      "user": "0x2412859B4C6FE0210C0a724F945c5A2B23CF49e8",
+      "amount": 928945
+    },
+    {
+      "user": "0x24752bC19ee968BFDE3c828f7adeea794Bd040FA",
+      "amount": 0
+    },
+    {
+      "user": "0x24caC3524540ac12227b20BdFEE5D54FDe367975",
+      "amount": 901777
+    },
+    {
+      "user": "0x25122ecd3e80E8884bD2A1e56c347542c7AD5250",
+      "amount": 0
+    },
+    {
+      "user": "0x2585cabd5e31b0a794d8E256edF4f04D20dB79dE",
+      "amount": 1605
+    },
+    {
+      "user": "0x258bf57C841CdaCe9f3aA8de319AE731502afE58",
+      "amount": 1034740
+    },
+    {
+      "user": "0x2593154f192f46f65a4a0315A5D77556D5d3d264",
+      "amount": 0
+    },
+    {
+      "user": "0x259F5bfEAb72c188618F11155108bc4666261057",
+      "amount": 1196776
+    },
+    {
+      "user": "0x2621848A0890Fe6473063E2F9F5597786fA28c91",
+      "amount": 4233
+    },
+    {
+      "user": "0x280A8675cF1d930c638F4f9Eb9dbe75823801D5a",
+      "amount": 954204
+    },
+    {
+      "user": "0x28104d4F703EE5B5011cefe106f54eFd56F33f95",
+      "amount": 0
+    },
+    {
+      "user": "0x2842B7B3CbCc756EbD7E9392a975D81fD2264f85",
+      "amount": 9422
+    },
+    {
+      "user": "0x284Cd3CF8868d51D8E252231875171F988B94917",
+      "amount": 206
+    },
+    {
+      "user": "0x291708901Cc2058c315CFBF8c380bf809dA3902a",
+      "amount": 59187
+    },
+    {
+      "user": "0x295621cFE3909A537989cc04B5D2f42f4eCD20c4",
+      "amount": 1360
+    },
+    {
+      "user": "0x299D3D4E989BFEa947e03cFf589c942e7C6Cb5b2",
+      "amount": 6381
+    },
+    {
+      "user": "0x29AF0036Eb56aE8273815b250acc0c49EAf5C3dA",
+      "amount": 5415438
+    },
+    {
+      "user": "0x29CEaCE85f16698f91Afd48AFfEE0F44f3e72643",
+      "amount": 53424
+    },
+    {
+      "user": "0x2a030fF3a0a001834eAc35B2fE4bEF3478ED04Bb",
+      "amount": 70484
+    },
+    {
+      "user": "0x2a16Fef1Ee084758B3CB97D2F66177a76c2cb189",
+      "amount": 20032
+    },
+    {
+      "user": "0x2a28AA5D3Fa8917d5E586a17C12cC02c28e476aE",
+      "amount": 3811
+    },
+    {
+      "user": "0x2a6129197ea0D15F6FE3579450250e457ed0a618",
+      "amount": 8420
+    },
+    {
+      "user": "0x2a87E5CbF9Faf5B63A23Be53D304254748b90356",
+      "amount": 32827
+    },
+    {
+      "user": "0x2A99497D69e4B180709F2a493f75288427c572cd",
+      "amount": 36948
+    },
+    {
+      "user": "0x2AAD3F39B7b178B1845fb36c1F34668c9c403757",
+      "amount": 16965
+    },
+    {
+      "user": "0x2Ac1C11176EE12D5355820FF3B8896a59bA34FbD",
+      "amount": 109870
+    },
+    {
+      "user": "0x2b28fE276e97F4467c0D7004162BB1812eCbF1CF",
+      "amount": 270050
+    },
+    {
+      "user": "0x2B380117B78527BD88abBC392CDf4A387f00d1A4",
+      "amount": 305687
+    },
+    {
+      "user": "0x2c47f450D06132Fc3ef54AD8336212ADE35A7841",
+      "amount": 19702
+    },
+    {
+      "user": "0x2c90199a5Bf83970Baa06a8E2Fa34634f267b1Dd",
+      "amount": 1423663
+    },
+    {
+      "user": "0x2D03Bd358280972e0989a478237Cd738152074BB",
+      "amount": 21754
+    },
+    {
+      "user": "0x2d07810759a29697533e815E7279d1C7B3947e11",
+      "amount": 64591
+    },
+    {
+      "user": "0x2D42d6bB3d18A7be35D76b599aee9D3358b22B3E",
+      "amount": 1088192
+    },
+    {
+      "user": "0x2D97fb8897388c317906A77eCD7a0604ef80c0f7",
+      "amount": 6366
+    },
+    {
+      "user": "0x2e9E8350a10C72a87038AE38f4A65C4d766FC85b",
+      "amount": 4390132
+    },
+    {
+      "user": "0x2eA5585A8CAe991383403f5fD5985f4239862128",
+      "amount": 1030
+    },
+    {
+      "user": "0x2eF92e145d8a247D994117AFa600B066e0d9C4e7",
+      "amount": 2195140
+    },
+    {
+      "user": "0x2f0131cB5914249C5a1EFDd70303D20d191B1055",
+      "amount": 307214
+    },
+    {
+      "user": "0x2F9cB6AA903ff663C2AFAaCBDF4BD6e376125c23",
+      "amount": 4145
+    },
+    {
+      "user": "0x30086c39930C0708B83e2C31Ee080505D843aC8C",
+      "amount": 1117403
+    },
+    {
+      "user": "0x30620715bCF265773B2973eFf4293CEE0Bb1b774",
+      "amount": 20418
+    },
+    {
+      "user": "0x31017B175c8640F0210109532fd23EcE282bAFaA",
+      "amount": 493660
+    },
+    {
+      "user": "0x322faE17AF58bDe3FF7d0a74f03Fc80Cd4c2A78E",
+      "amount": 5511
+    },
+    {
+      "user": "0x3273dc17FEcb1e8e7E7276bf936364aF9AF88c2d",
+      "amount": 21580
+    },
+    {
+      "user": "0x329567bf27c6d06d0Acf96d6bF0093CD6B4878b4",
+      "amount": 230456
+    },
+    {
+      "user": "0x32CB0db327398510E0202615a2d39B69c47d9003",
+      "amount": 219539
+    },
+    {
+      "user": "0x32cE9ADC3bAb34A088EF9c8FC8BC6145e6AC5b3E",
+      "amount": 6266
+    },
+    {
+      "user": "0x32cF8e7884b904e93961E046564bfd90Dd7Bc7e8",
+      "amount": 23581
+    },
+    {
+      "user": "0x32fD99f508e2a07A7DAC8144E14DD7E479193420",
+      "amount": 204
+    },
+    {
+      "user": "0x33af2A4745a1DFC2268F0d92438FC732d35928c4",
+      "amount": 2055
+    },
+    {
+      "user": "0x33C229D21C5C3aD2A6aae940e2fFE2eb1138A73D",
+      "amount": 56330
+    },
+    {
+      "user": "0x3447b119beA3D53589Ff288DbaacB08522cE6D20",
+      "amount": 45583
+    },
+    {
+      "user": "0x345F273fAE2CeC49e944BFBEf4899fA1625803C5",
+      "amount": 0
+    },
+    {
+      "user": "0x347e3AF43bB62ae59569D09630c1287f135C7cbA",
+      "amount": 604250
+    },
+    {
+      "user": "0x348B3ccAC1F8B763b19E91f5fBA71B85Dc305655",
+      "amount": 444381
+    },
+    {
+      "user": "0x34914A33010D87428a8De0b28A31A78A78388b08",
+      "amount": 4692
+    },
+    {
+      "user": "0x34A37E31856F8488D44c3077E54fb8aF2F7f7722",
+      "amount": 13818
+    },
+    {
+      "user": "0x34Da0eF9Bd157762878ca81e0Dfdc415d89f1B8d",
+      "amount": 1090314
+    },
+    {
+      "user": "0x35E9492b2622E803a4D50fC7826cF6778E3f6e71",
+      "amount": 11811
+    },
+    {
+      "user": "0x36fDb65D2d484b036AdE6A2a418B05Da0c848f1B",
+      "amount": 489160
+    },
+    {
+      "user": "0x37d0ABd5ceA0495742D5fc390aAb60913d2Ed562",
+      "amount": 0
+    },
+    {
+      "user": "0x37FB8fbBebDAeF12604f5C9F09917869A2C61439",
+      "amount": 4124
+    },
+    {
+      "user": "0x3973F3E182c8770C4e16Fdd6ED1c45A00f5b4281",
+      "amount": 7902238
+    },
+    {
+      "user": "0x3B0fa9A9Ed31421f7FD94a9D3Bfac8ed45578e10",
+      "amount": 219707
+    },
+    {
+      "user": "0x3B27944505847cb14f3F2983638d082c8D9526d0",
+      "amount": 1006090
+    },
+    {
+      "user": "0x3B4bBC938711CB2A03dd999D7bF1532dF897d976",
+      "amount": 799
+    },
+    {
+      "user": "0x3B736DA9991f410184Ca6cF6761B120172444dd8",
+      "amount": 0
+    },
+    {
+      "user": "0x3b9A5457E9b8a20feb8Bd23A5270E2DADfE3222A",
+      "amount": 1171917
+    },
+    {
+      "user": "0x3bAf04a1dAccB03F4806694Cf1a266E1C4DF1310",
+      "amount": 545719
+    },
+    {
+      "user": "0x3C8a80C7B53b5B7E0C9Fc5cdD5587CdeF2379C9c",
+      "amount": 515389
+    },
+    {
+      "user": "0x3cbAee4F65B64082FD3a5B0D78638Ee11A29A31A",
+      "amount": 0
+    },
+    {
+      "user": "0x3cE2d149334833D9Cf9Cb0Dad4014B72F45956aD",
+      "amount": 144210
+    },
+    {
+      "user": "0x3D0F34841EA5E415a50A7136224d20A9bC1fED46",
+      "amount": 5508
+    },
+    {
+      "user": "0x3D645730e8B199F59c9a655920DeF45A042ffe68",
+      "amount": 10307
+    },
+    {
+      "user": "0x3Dae0739BaD303550F5203dA6eDCcCfdf0d5D256",
+      "amount": 15430
+    },
+    {
+      "user": "0x3e124eaEF10d1aBf1727C4C11E7fFc4f6FcED46c",
+      "amount": 22400
+    },
+    {
+      "user": "0x3E1695718cc839dceC0462CeDbCa3C1D5A16501B",
+      "amount": 45989
+    },
+    {
+      "user": "0x3e2DF235dF04C633d753E6F06CB9BCa9c9af51A1",
+      "amount": 11052
+    },
+    {
+      "user": "0x3E863B9EDe98c4c1f256A9eC507a5FE4b7587817",
+      "amount": 28668
+    },
+    {
+      "user": "0x3Ece5037b581A8933dc85Ce454951AB2640Bdcb6",
+      "amount": 0
+    },
+    {
+      "user": "0x3eF9b87a257F9E0968841E46B54E5a2DA2c29CfE",
+      "amount": 2602
+    },
+    {
+      "user": "0x3F3Ac8C6e85c8659e0af4f4B6ed50f51A1A8e0B1",
+      "amount": 0
+    },
+    {
+      "user": "0x3F7C10cBbb1EA1046a80B738b9Eaf3217410c7F6",
+      "amount": 5617573
+    },
+    {
+      "user": "0x3Fa96f50dE9335e6A36daFb5d50164FBAc181eA5",
+      "amount": 109906
+    },
+    {
+      "user": "0x3fFF360502DeA86ffbd4a8fD1467B55F60256939",
+      "amount": 23595
+    },
+    {
+      "user": "0x40510Ad5D5B30A8D164e1E5c850e223539E4725a",
+      "amount": 1097533
+    },
+    {
+      "user": "0x40bBA8B1C1140DEFC330c79e4bcBd2CC40e7a380",
+      "amount": 483133
+    },
+    {
+      "user": "0x40Db8365d1252bcb06598927698238a99D39228E",
+      "amount": 50349
+    },
+    {
+      "user": "0x40F832B71D2C525A9aa4b4908Ec511Ed93c8a308",
+      "amount": 1116835
+    },
+    {
+      "user": "0x410f443687f4bC682c5f8dbaa00113659cd028e3",
+      "amount": 2953
+    },
+    {
+      "user": "0x42261913A6492Bc586BD1fceCC3AB322c9c73BEa",
+      "amount": 17570
+    },
+    {
+      "user": "0x4236CAD967f018f4d87FD9C9aa0Fb56E4F6fE9c2",
+      "amount": 81944
+    },
+    {
+      "user": "0x42a1ef5FfDaf134EB958814E443Db9c244375C8f",
+      "amount": 1098103
+    },
+    {
+      "user": "0x42BA76742909Da65D9A432350A15c8ae141ac403",
+      "amount": 0
+    },
+    {
+      "user": "0x42DfE349e0c12af71C0a4Db8067DDFAbbA7407D2",
+      "amount": 380
+    },
+    {
+      "user": "0x43f330e1ab4c573e46A86be9b92c33a38fec60f6",
+      "amount": 208
+    },
+    {
+      "user": "0x4444AAAACDBa5580282365e25b16309Bd770ce4a",
+      "amount": 61091
+    },
+    {
+      "user": "0x4472dA65cEB26039327AFc34Caa1C69e00477172",
+      "amount": 1047560
+    },
+    {
+      "user": "0x45cb3F4e89C64D6754A0A0e39FEda2415Df6B707",
+      "amount": 2158
+    },
+    {
+      "user": "0x45F23fbf88AeEba040dE8093Db09a49d428bD380",
+      "amount": 28639
+    },
+    {
+      "user": "0x46F53EA276d20c4B779a1c231DE2f4501f1D9773",
+      "amount": 0
+    },
+    {
+      "user": "0x4716808542eC9754E4d4a6EFDF9fe14A91E06Ec6",
+      "amount": 43003
+    },
+    {
+      "user": "0x483e05E875b3962Dc69E74092C13b97b1F5E7a56",
+      "amount": 477591
+    },
+    {
+      "user": "0x4951b510007Edb0AC116E8d7733B63900A571AE0",
+      "amount": 22354
+    },
+    {
+      "user": "0x497edCA1904a92dc6AcE056Fe3225F2c93A3a517",
+      "amount": 129508
+    },
+    {
+      "user": "0x4a1d85401E5D7194bF2beC1f4731554698DACCf7",
+      "amount": 30
+    },
+    {
+      "user": "0x4A309866D288F5bcc0F4AEA449F2E176CEF976aA",
+      "amount": 48179
+    },
+    {
+      "user": "0x4aa60959B1571e62F9b353937C3E45978fD07713",
+      "amount": 18633
+    },
+    {
+      "user": "0x4aD41b780af5A7bF7552cf8E090F825734e6074F",
+      "amount": 291301
+    },
+    {
+      "user": "0x4B0f6A90661c2cb463482efdEC396132388CCA7b",
+      "amount": 2129
+    },
+    {
+      "user": "0x4B31f8a72De30b376bF4ea3D58484bC24b569a44",
+      "amount": 2066918
+    },
+    {
+      "user": "0x4B742B8ca35D3f73222AF21DEcdfB6c5E11336f5",
+      "amount": 2142
+    },
+    {
+      "user": "0x4B842898FEDEE3903001BD0ebDBA5c79643A2035",
+      "amount": 54622
+    },
+    {
+      "user": "0x4b8CD2ddB288EcB0663df50cD4B8ab83401a9229",
+      "amount": 17545
+    },
+    {
+      "user": "0x4Bac2f3675c471474ce78b9eA921756E77A43D30",
+      "amount": 108318
+    },
+    {
+      "user": "0x4Bb12cC382E36B4b6faF7BDcA7708969Aed258eF",
+      "amount": 82370
+    },
+    {
+      "user": "0x4c47b2520E9f7E3da15dF09718d467f783b03858",
+      "amount": 21009786
+    },
+    {
+      "user": "0x4C904f5C12B86AAA4cA1d35d52D2c0064618A737",
+      "amount": 163
+    },
+    {
+      "user": "0x4c9F7207be28278b9DCA129f2e211AcfFf48Fb01",
+      "amount": 3742065
+    },
+    {
+      "user": "0x4CA2790DB4b83992B24Eb78761003c789fA7171B",
+      "amount": 186
+    },
+    {
+      "user": "0x4Cc16eE5bbbe892122Ef15CFaEd4Eb9c3DfDAE24",
+      "amount": 2174979
+    },
+    {
+      "user": "0x4CFCC2D8A5695e84EDf547A3b32be843998b3be9",
+      "amount": 2174
+    },
+    {
+      "user": "0x4d0f9A5BA9516eE5B4F3704204496A1Ca3c7dE69",
+      "amount": 8331
+    },
+    {
+      "user": "0x4d14d6abf98A615DFb51494240650C7B352BEc19",
+      "amount": 2219
+    },
+    {
+      "user": "0x4d68Cf31d613070b18E406AFd6A42719a62a0785",
+      "amount": 16932
+    },
+    {
+      "user": "0x4d75631f112ea6D5CDEAF329D01A824455a8CD92",
+      "amount": 1120783
+    },
+    {
+      "user": "0x4DE65236F43f6c671096B07d040394eDDe828f12",
+      "amount": 197567
+    },
+    {
+      "user": "0x4E1c2e04931b759B5Be01C470f471d6b0C02b75a",
+      "amount": 927
+    },
+    {
+      "user": "0x4F1154CD5B11158954519e2F2cb9eFB305a76474",
+      "amount": 15741
+    },
+    {
+      "user": "0x4fA438d67c8ACeC1BcC07D7BF020F141ca8D2C32",
+      "amount": 2120
+    },
+    {
+      "user": "0x4fBf19ef834395e5Ce96c6b9EF2F67fF11Cb4E89",
+      "amount": 1257154
+    },
+    {
+      "user": "0x4fF68a2b36dc13746Bf2d4dc54e63999cE055CD3",
+      "amount": 2158
+    },
+    {
+      "user": "0x50598aF27B798d0b7F538B28e7C2f9994A9E58C1",
+      "amount": 46405
+    },
+    {
+      "user": "0x50C0Cc23e6b493069C5Ce1a6a1a217A23e2e1AC8",
+      "amount": 215006
+    },
+    {
+      "user": "0x513AeDacE44cc9a0724CA276a8CeeeE950903576",
+      "amount": 542570
+    },
+    {
+      "user": "0x51885b7440288e8207B396f426981D92102E3B9D",
+      "amount": 1049357
+    },
+    {
+      "user": "0x52B572e36db2D6e07f3d07A88f50695781DAfa98",
+      "amount": 21860
+    },
+    {
+      "user": "0x52dDc666e626b338a53ED0c8066cF2fCd33044bc",
+      "amount": 12199
+    },
+    {
+      "user": "0x54B564968B419f3e13AD4407d9a021Cf40A3A798",
+      "amount": 67046
+    },
+    {
+      "user": "0x54F65A11Ac61dE39DC70379a3CA0FA268EEf952c",
+      "amount": 546757
+    },
+    {
+      "user": "0x5500E69d58D8f80B236C8A72FD52C538a5D5237f",
+      "amount": 1080467
+    },
+    {
+      "user": "0x5542392542DCB0CD3E4781cfdaFdA2c68a1F4C5f",
+      "amount": 15912
+    },
+    {
+      "user": "0x55710Aa3Bb05b611fcF16D02E28cC35BEB89BAE7",
+      "amount": 7673
+    },
+    {
+      "user": "0x55877bD7F2EE37BDe55cA4B271A3631f3A7ef121",
+      "amount": 0
+    },
+    {
+      "user": "0x561c689A25cBC25d7ED197642F5C9681AF902f5b",
+      "amount": 21950
+    },
+    {
+      "user": "0x561D4561ae0c45505a6f6B1A58EEE27D7B94cB62",
+      "amount": 21322
+    },
+    {
+      "user": "0x5627f8895F5Ac5eB0e23145d9976f427a90D9B1B",
+      "amount": 31502
+    },
+    {
+      "user": "0x563DD07168BAa682094eC7174C2bB942755a7020",
+      "amount": 109749
+    },
+    {
+      "user": "0x566e7d07281aaE7e60e689ec58b958cfA9E0b193",
+      "amount": 5583
+    },
+    {
+      "user": "0x56C526b0159a258887e0d79ec3a80dfb940d0cD7",
+      "amount": 0
+    },
+    {
+      "user": "0x56d8822091AC3286a4DE12b7C1B84390a79920f3",
+      "amount": 274378
+    },
+    {
+      "user": "0x56DDCbc09713D2bA8dff06Ec008CbECf4b702Bfb",
+      "amount": 26257
+    },
+    {
+      "user": "0x56f654c7027d91426C4c40e4d875FEe78EE93321",
+      "amount": 13785
+    },
+    {
+      "user": "0x57065dBD1E96E156E642a46179A10bd479aaD10E",
+      "amount": 0
+    },
+    {
+      "user": "0x583924a6DFA73F20d7Cee1F067F56afECcDdA38c",
+      "amount": 37602
+    },
+    {
+      "user": "0x5876d971Cbcd2E5C0c763BD23487b51dd09dA2d3",
+      "amount": 1293784
+    },
+    {
+      "user": "0x589b483486c4320C66Cc0ff9FE3A74d31cb9FC37",
+      "amount": 2019
+    },
+    {
+      "user": "0x5993Bad196C8786BaAEdB5A5868f338fE6ce4Cc2",
+      "amount": 1936678
+    },
+    {
+      "user": "0x59B7F950ee7f09Cc7A5d11C4AD1b6a0abffeEC9d",
+      "amount": 5493854
+    },
+    {
+      "user": "0x59b9c61FE8164A807311dF8e5b7aFfBd6669eeDC",
+      "amount": 43722
+    },
+    {
+      "user": "0x59EBBfCaD80c35a1e60dbD0393715a05ee048439",
+      "amount": 0
+    },
+    {
+      "user": "0x5A80d3Dec587d242F06dB92A4398668B66F183C6",
+      "amount": 212731
+    },
+    {
+      "user": "0x5b1eFAa70D768dd88B19E1bCd4BF418ADeC8bC89",
+      "amount": 2553
+    },
+    {
+      "user": "0x5C5b6E2ccFB4c4C6eeA1AB4f88B2Aa4CC683B4F2",
+      "amount": 54
+    },
+    {
+      "user": "0x5C75092D581Aa8eE9FB04eBfB641139675309822",
+      "amount": 2163478
+    },
+    {
+      "user": "0x5cFE100d16670A0cB7d620F5D87837Ef8390361e",
+      "amount": 78900
+    },
+    {
+      "user": "0x5d47e5D242a8F66a6286b0a2353868875F5d6068",
+      "amount": 201057
+    },
+    {
+      "user": "0x5D60f26Fc55cb4294A5261288b342B9A5a9393bC",
+      "amount": 1058037
+    },
+    {
+      "user": "0x5E09dba055f417eE82461bA858e0C7AF7DA760fc",
+      "amount": 0
+    },
+    {
+      "user": "0x5e0e7d2AFa1Aa91970d9fc03244b82893685e065",
+      "amount": 46694
+    },
+    {
+      "user": "0x5EB0555862177d3CE727AA22998EF4dce8618698",
+      "amount": 96
+    },
+    {
+      "user": "0x5Ed70A2a98e06c48f1D70EF9249F2CB6Ba287a8b",
+      "amount": 95
+    },
+    {
+      "user": "0x5Ef3e3395F838bc5736EfbCe77884bd06035313B",
+      "amount": 118966
+    },
+    {
+      "user": "0x5F0000D4780a00D2DcE0a00004000800cB0e5041",
+      "amount": 0
+    },
+    {
+      "user": "0x5f33ff3027c4763D36e6f4F7C20eE72F700A5D34",
+      "amount": 18696771
+    },
+    {
+      "user": "0x602dC1d22884E333FCA32eB03105773c3b97b22B",
+      "amount": 66684
+    },
+    {
+      "user": "0x60622F90BE46600962a1638623c7686AEdc8755b",
+      "amount": 8570
+    },
+    {
+      "user": "0x60D02b939E1Db27C51bf2667Adb3D90c70F6957b",
+      "amount": 0
+    },
+    {
+      "user": "0x6262e16BAe0986048d17d015275A6b5E7bA777c0",
+      "amount": 1047327
+    },
+    {
+      "user": "0x626Ea6D1e5Ea3fbaba22F5d4005D98E7039d0C99",
+      "amount": 251580
+    },
+    {
+      "user": "0x63538cb87311ED8b681EA6d8fd38F1F6c8683B14",
+      "amount": 307303
+    },
+    {
+      "user": "0x6477dc9d82296b322beF9B5615C4aBf6e6C64b3E",
+      "amount": 2158
+    },
+    {
+      "user": "0x649BE23055b9689fFAC798A0238A4F3763b1334d",
+      "amount": 7933
+    },
+    {
+      "user": "0x65082518D17e0d4F8EEC1dBC31f54CA4d846BC40",
+      "amount": 48587
+    },
+    {
+      "user": "0x65f251BD86a8f01356fE83119D7466d9269EB73B",
+      "amount": 658558
+    },
+    {
+      "user": "0x65fCB4E8FaaE5010EFB5e22b31a3B47189299A24",
+      "amount": 18767455
+    },
+    {
+      "user": "0x6623215826F8be557DAe02f03dd1187c72F590ba",
+      "amount": 59
+    },
+    {
+      "user": "0x6629E3620572BB212078103f8D3164578525962d",
+      "amount": 0
+    },
+    {
+      "user": "0x6686f033Aa3C41575E3ec989bED5303059eFb11F",
+      "amount": 102300
+    },
+    {
+      "user": "0x66C25a700F9c762891b4d6fbf5aF9Dc2eb04266A",
+      "amount": 1721463
+    },
+    {
+      "user": "0x66E1df8db9B0521D41d7Eb30464a5281f71b29A8",
+      "amount": 10119
+    },
+    {
+      "user": "0x66E987845ce787430344561f1FbA1Dab1a25a6aa",
+      "amount": 0
+    },
+    {
+      "user": "0x670e50878b8729FE20a19A2b35b715C573709cC9",
+      "amount": 17628
+    },
+    {
+      "user": "0x6778c4D74DC5f3d7a5f286405A266b30561C0CEb",
+      "amount": 219496
+    },
+    {
+      "user": "0x678eaeb28515460a42b55176B095E7ff85721f2A",
+      "amount": 180
+    },
+    {
+      "user": "0x67a114e733b52CAC50A168F02b5626f500801C62",
+      "amount": 2417
+    },
+    {
+      "user": "0x67D6901a652534390EE5D76Fd824bb67458c7343",
+      "amount": 7617
+    },
+    {
+      "user": "0x6800304b221660F23f382cf5ec42AB2DfC66890f",
+      "amount": 366139
+    },
+    {
+      "user": "0x6827e5B7904A7A0b6e3f97Ac463a3d3B0BD0AB08",
+      "amount": 809
+    },
+    {
+      "user": "0x68378fCB3A27D5613aFCfddB590d35a6e751972C",
+      "amount": 6
+    },
+    {
+      "user": "0x6871D7ce06C705112E51a22Fd41B693E7875a445",
+      "amount": 1532894
+    },
+    {
+      "user": "0x694114e5848248386C5Ab9a476913C46851dB4F1",
+      "amount": 884069
+    },
+    {
+      "user": "0x696dC914cDbe138Db2325b9BE840F56750AA1b90",
+      "amount": 0
+    },
+    {
+      "user": "0x699986f754ac687Ce668C6d91e31811976A2669B",
+      "amount": 47998
+    },
+    {
+      "user": "0x69b0C84cE54B61B2861867FEdb9fA9FF8617d40a",
+      "amount": 219492
+    },
+    {
+      "user": "0x69dD03B8d4074AE9bA7DfD472f90502fc5b15D42",
+      "amount": 452179
+    },
+    {
+      "user": "0x6a43Cf422BB521b6BCC1Efa5C31C09cB1Ee9bdE7",
+      "amount": 54879
+    },
+    {
+      "user": "0x6a6A91102c39eb70b08D54A4a2046b880ca6544E",
+      "amount": 5083
+    },
+    {
+      "user": "0x6a9E8cEEB414E6Bb7E0049F6218195166FE42C47",
+      "amount": 1169576
+    },
+    {
+      "user": "0x6aa93dd867b9c00bB82C9D5Fe15C5048aB14f888",
+      "amount": 452317
+    },
+    {
+      "user": "0x6aB6Ca69ffb9ed60c31A52B2DA635FfAB8b1f590",
+      "amount": 82845
+    },
+    {
+      "user": "0x6aBa40b5c1Ac3F7AD30bedECefA83278070ba4b6",
+      "amount": 1058923
+    },
+    {
+      "user": "0x6Ad4e3cC41CB1d1c5521456908b187c98fb1eb86",
+      "amount": 2331
+    },
+    {
+      "user": "0x6b5a140789EAC966dD7629A5c526A92F75555d13",
+      "amount": 100375
+    },
+    {
+      "user": "0x6B9616488Df24AAab399dd6558371C41c3A165C9",
+      "amount": 120228
+    },
+    {
+      "user": "0x6c46e3Bb8F0aA6ab1796dc6d7F8bd7817f1fC72E",
+      "amount": 42041
+    },
+    {
+      "user": "0x6C99C45b39D1cddb61b272798ea1dA2cDAc9bCc8",
+      "amount": 8790
+    },
+    {
+      "user": "0x6E222Fe250cC5B1C4641b8902B3e2Cf545949172",
+      "amount": 10192
+    },
+    {
+      "user": "0x6e89EE22E10f1b0d19A1d7e9A9014dE5453754a6",
+      "amount": 0
+    },
+    {
+      "user": "0x6f9c903C03E946Ceb6162511adf7Fab66403925b",
+      "amount": 4885
+    },
+    {
+      "user": "0x6fADF5162803F7fD1C2d6f39979232BDD6517584",
+      "amount": 316366
+    },
+    {
+      "user": "0x6Fae86071A913D66BbC3B10857581370D653dce9",
+      "amount": 865060
+    },
+    {
+      "user": "0x6FEFc571fb14499112C9C34f2A68E54185760631",
+      "amount": 1538
+    },
+    {
+      "user": "0x701CE1ca23bf7544807aFf3A2312F4927dcc34aB",
+      "amount": 25755
+    },
+    {
+      "user": "0x7077b5263E0184E101478Cf9dd43e52905380289",
+      "amount": 2963
+    },
+    {
+      "user": "0x70B0Deeb4b1c98FCa3368325A3e8965001143c83",
+      "amount": 3352223
+    },
+    {
+      "user": "0x70de006C45C4464e0aCd8D5999DfBa148F7C70C4",
+      "amount": 1082
+    },
+    {
+      "user": "0x718805874028B3AC25f622013D3273daB05747a6",
+      "amount": 6430
+    },
+    {
+      "user": "0x71f0e61C44c798Fd527A1B957c94D21268B82ec5",
+      "amount": 536
+    },
+    {
+      "user": "0x725e704b6933be9896c717F735E5a5edbFc7193f",
+      "amount": 0
+    },
+    {
+      "user": "0x72bB0e0540719cdA1A7fc26d544B2Afa921595Ca",
+      "amount": 210154
+    },
+    {
+      "user": "0x72bD536087025156bD72FC1C28D02C198C521233",
+      "amount": 21953862
+    },
+    {
+      "user": "0x72d25321a1e2A89F7115e4c5893bb8539203C376",
+      "amount": 2065
+    },
+    {
+      "user": "0x72e8B2c9f6E43cF8e3ED2432cf17C877295e4010",
+      "amount": 105
+    },
+    {
+      "user": "0x731A057b7ebf4d22f9d0BfDa10CFBFe9bFA4d5e2",
+      "amount": 1124448
+    },
+    {
+      "user": "0x735d7BF9b18C3c96EC2c7a26Ba7970CF5cf153E7",
+      "amount": 8418
+    },
+    {
+      "user": "0x7363c82AF29aD0b64283BB0Ce307D16054d094D6",
+      "amount": 0
+    },
+    {
+      "user": "0x740c39998744c8437BfAafdF05E4DF22854B6b62",
+      "amount": 460563
+    },
+    {
+      "user": "0x7419BB7Ac254bbd412D923Cff25794042A5dD821",
+      "amount": 188349
+    },
+    {
+      "user": "0x74b8e67d4246642d9A3E63dC03Dd5F03C3346291",
+      "amount": 9563
+    },
+    {
+      "user": "0x74de5d4FCbf63E00296fd95d33236B9794016631",
+      "amount": 0
+    },
+    {
+      "user": "0x74f0ef88878bAd5c38EE76144ebB723C94E25A86",
+      "amount": 853477
+    },
+    {
+      "user": "0x75a044Fe7503bf6F92C6b05Cb22c0e71A44d437d",
+      "amount": 24945
+    },
+    {
+      "user": "0x7656E4f77E71FF142d61b3165ea18402B135a928",
+      "amount": 0
+    },
+    {
+      "user": "0x765a16ca391A6b9249cfA65bf2D14C38722198e3",
+      "amount": 815
+    },
+    {
+      "user": "0x76C644460410070F7293C1f83DA81C1389A6EFE6",
+      "amount": 5381
+    },
+    {
+      "user": "0x76e69832cCED34E4D801fb758bdF3d0Ffd54320d",
+      "amount": 437322
+    },
+    {
+      "user": "0x7712EDeEC7F22539A303b43ea6B76818AEA848AE",
+      "amount": 23081
+    },
+    {
+      "user": "0x771A9b4EF42b575f6059E0F3CDD5e1A8C9A9bCaa",
+      "amount": 10727
+    },
+    {
+      "user": "0x77BA4d2316b0aB6fFf62187835c65AefD37dBb4a",
+      "amount": 4
+    },
+    {
+      "user": "0x78b127298fFa031F41D1a7b55d1cD6Bf02A272A6",
+      "amount": 11706
+    },
+    {
+      "user": "0x78bC83b1255d96b190848B3A8146491cd7E63134",
+      "amount": 1098346
+    },
+    {
+      "user": "0x78e90B46Ee542441e9FDcD1E072C3BC962fbd62d",
+      "amount": 34839
+    },
+    {
+      "user": "0x7935E861F1F76A40b9691CA1098C7E6151aB917c",
+      "amount": 2381
+    },
+    {
+      "user": "0x79a3C5Db27B4C8B0BCA519edb68E12De50BFeB1C",
+      "amount": 1078836
+    },
+    {
+      "user": "0x7A4f3D55623fb6320C9D824A5310b11C101c3C0e",
+      "amount": 21950
+    },
+    {
+      "user": "0x7a7E5B9c87A78E7958Ab0A4aedd0A047D856671C",
+      "amount": 31429
+    },
+    {
+      "user": "0x7B58d24ed811B1cbA23887855982F283fADe1493",
+      "amount": 32930793
+    },
+    {
+      "user": "0x7b8E9e65CCC5B515dC50f293C1876012149a08c7",
+      "amount": 1096928
+    },
+    {
+      "user": "0x7bDB93aC831712f0b5BFbC5c41C9655E516D34aE",
+      "amount": 93
+    },
+    {
+      "user": "0x7BDE71ACD44b18f520A1DB67bF0056402586e50E",
+      "amount": 2432
+    },
+    {
+      "user": "0x7BFEe91193d9Df2Ac0bFe90191D40F23c773C060",
+      "amount": 0
+    },
+    {
+      "user": "0x7C1EF124eA6b78FB6E0b82DF2f32Fdd2208f8636",
+      "amount": 19045
+    },
+    {
+      "user": "0x7C7770D9C77899325d57B41880DF70c82BB685c2",
+      "amount": 15472117
+    },
+    {
+      "user": "0x7C8c8eF20a48901372775618330B294ab937C934",
+      "amount": 1977
+    },
+    {
+      "user": "0x7C96149FB05B6c98565F86464744c6d59EdC8f62",
+      "amount": 919392
+    },
+    {
+      "user": "0x7CD2834aB815B95040f7905122838F59b103F964",
+      "amount": 1673
+    },
+    {
+      "user": "0x7D0AEC54391a10aa16d9B93490723fBE94eA4B8F",
+      "amount": 2425
+    },
+    {
+      "user": "0x7d585B0e27BBb3D981b7757115EC11F47c476994",
+      "amount": 0
+    },
+    {
+      "user": "0x7D719ED3E4570c40d06f91bD1F376330BC50715b",
+      "amount": 54879
+    },
+    {
+      "user": "0x7D8018bC0d1Bf82063f3E49815d7dE6d27d006Fe",
+      "amount": 1048107
+    },
+    {
+      "user": "0x7D965039141418D6F8C0d534f3d86c4b53e2fd4d",
+      "amount": 0
+    },
+    {
+      "user": "0x7D9960657d458CFce824E5bc39575c00A645b0C6",
+      "amount": 3760
+    },
+    {
+      "user": "0x7D9d0DA1Ad30d4a707A473C9e91ecc100Ff065ef",
+      "amount": 867770
+    },
+    {
+      "user": "0x7d9f5398BB4c8967F71bA2e8b09BF2aa4746b809",
+      "amount": 65857
+    },
+    {
+      "user": "0x7dA5fFBF650Ac8Fe4b2F31683fd26f402D0aF3fC",
+      "amount": 10833
+    },
+    {
+      "user": "0x7DD917132cED21E99417DE2991176bA8F9A09B55",
+      "amount": 1315
+    },
+    {
+      "user": "0x7e972d10cE8b5472d311bA7EA73A60Ba0E756D74",
+      "amount": 8781
+    },
+    {
+      "user": "0x805ABeD5e1758bA5637AF4D8c673997B17352729",
+      "amount": 180
+    },
+    {
+      "user": "0x805EBB94084e01da57c4bc70B6FE414aF9148596",
+      "amount": 306
+    },
+    {
+      "user": "0x8061199A31983A077E691C08B2263a4CF5c24093",
+      "amount": 458080
+    },
+    {
+      "user": "0x80849572D80c8dc88f338b88AD81Cb7fd12D1CC8",
+      "amount": 1052047
+    },
+    {
+      "user": "0x80C9f5Cf673D93F606bb7A0EcF8A38BE255E9684",
+      "amount": 0
+    },
+    {
+      "user": "0x80e9B172E1043C0472e0EF70f0d93423713C867b",
+      "amount": 1097566
+    },
+    {
+      "user": "0x811F8a54B615559655E0Bf5891Ca499f9fc35298",
+      "amount": 0
+    },
+    {
+      "user": "0x81e3C9dED64CAF37ee5fFd643637E1a97CD64F5f",
+      "amount": 1060618
+    },
+    {
+      "user": "0x81Ec827E922764BB824c0f0B9951d4876e6f06b1",
+      "amount": 6676
+    },
+    {
+      "user": "0x82b43Ee2e45E663Ab5040A464B85C88A88A44a20",
+      "amount": 45276
+    },
+    {
+      "user": "0x8390F03787508AE637161C92c0EDC8eD9eA54b93",
+      "amount": 252460
+    },
+    {
+      "user": "0x84675E6633Aa7300fBBbd63B78Ae92cFba98d595",
+      "amount": 0
+    },
+    {
+      "user": "0x84bC1fC6204b959470BF8A00d871ff8988a3914A",
+      "amount": 1097693
+    },
+    {
+      "user": "0x8529d05587c48931684e4Bbc09cE62022b6564ac",
+      "amount": 157091
+    },
+    {
+      "user": "0x8532E9d4141012B411bEf8Bb88818B7998ff939D",
+      "amount": 25370
+    },
+    {
+      "user": "0x85A8b2A0a38D4697574172972c404C2FAa4348F7",
+      "amount": 1039549
+    },
+    {
+      "user": "0x8751B2aCF0Da3446151f3E58fbBb13CE55C1Fc7A",
+      "amount": 21566
+    },
+    {
+      "user": "0x881662b85e65871Bcc610ABc8e3fF35593FAAf8A",
+      "amount": 2092875
+    },
+    {
+      "user": "0x886D87047dd967F5D03CC40822b73BD3902471E0",
+      "amount": 1080742
+    },
+    {
+      "user": "0x8903Ff2Bf66d60DaE96263267498fDB2F9384315",
+      "amount": 210283
+    },
+    {
+      "user": "0x8945eF72988F04B423c4e6E0fB26C9DA9135b6fC",
+      "amount": 4609639
+    },
+    {
+      "user": "0x89FDCA36dD2DEc98030ACf99a9c37e5790c833E2",
+      "amount": 44709
+    },
+    {
+      "user": "0x8AD7b990951e55130968f23D4aB5e219aD10Dbcd",
+      "amount": 946414
+    },
+    {
+      "user": "0x8b6393236c01EbBb2588f840af7910c574F1adf9",
+      "amount": 151716
+    },
+    {
+      "user": "0x8BE668e3c1Fa0340Ea814bc4FE5aC11B232a78c7",
+      "amount": 31833
+    },
+    {
+      "user": "0x8c1dDcA6916451658C667A2CC8e8DD99db53C063",
+      "amount": 6751
+    },
+    {
+      "user": "0x8c29025B98CFA7be9AC0555DcefCB4846723eEfc",
+      "amount": 2170
+    },
+    {
+      "user": "0x8C5458144A18346e9B5D057440dB5Fa83Cbe9ee1",
+      "amount": 14543
+    },
+    {
+      "user": "0x8c6dA9A520d885CB25c1577cABfB80D9669E32FD",
+      "amount": 2158
+    },
+    {
+      "user": "0x8C7Aef68dAdF7cCb4024d13137C72cc3e5a12c9f",
+      "amount": 2959273
+    },
+    {
+      "user": "0x8C8d1fd5abcBA3d5CA7a31705600bFfA1d20Fb4c",
+      "amount": 984644
+    },
+    {
+      "user": "0x8Cd8DfA254B8Fa98C07B8D39FCf767086D145833",
+      "amount": 10119
+    },
+    {
+      "user": "0x8d22e5e77C82DDdeD913aad7222e03a989aC36d4",
+      "amount": 3722
+    },
+    {
+      "user": "0x8d744E2ac693Db36fd48Ad32f0AB39Eb575BB6E3",
+      "amount": 32358
+    },
+    {
+      "user": "0x8Da7d7e17D574a1213742e2c89512B68325A7f79",
+      "amount": 15581
+    },
+    {
+      "user": "0x8f234faF8974CdC99AD2628EF5Ed0e9d644193EB",
+      "amount": 576
+    },
+    {
+      "user": "0x8f6e9A52Bb2D9307d4AE142DC0be2d908272B079",
+      "amount": 7388
+    },
+    {
+      "user": "0x8fa74d850BabB2b21ba2Ea1f8c9CcD13770864cD",
+      "amount": 0
+    },
+    {
+      "user": "0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
+      "amount": 229
+    },
+    {
+      "user": "0x906C66d36Ed29A49AE3bFcDc82b09cF48bBC6339",
+      "amount": 158964
+    },
+    {
+      "user": "0x90F15E09B8Fb5BC080B968170C638920Db3A3446",
+      "amount": 565804
+    },
+    {
+      "user": "0x911D5E923e784c446BfAfb771d19247dd6db8B7A",
+      "amount": 6859
+    },
+    {
+      "user": "0x915c72B9c8C05B58F7C5957280d22eeDfeEaf0d1",
+      "amount": 3635
+    },
+    {
+      "user": "0x91d947DaA437F790BF8Fbe1e81Fd3Eda403796Bf",
+      "amount": 551641
+    },
+    {
+      "user": "0x926882F6192D718e3f5ce1ad168c1d3630462924",
+      "amount": 10816
+    },
+    {
+      "user": "0x932500813eF18fD632051458e1DdA9Da930Bf763",
+      "amount": 54879
+    },
+    {
+      "user": "0x9325564ADe7683706107685Cf1993678B1163261",
+      "amount": 1005215
+    },
+    {
+      "user": "0x93AB0CD091DC8Dd513eBFd11972e64A2AC558552",
+      "amount": 193
+    },
+    {
+      "user": "0x93e8Ed9cE6b52bb7e1e8f30aE12c18452E5Fb3e3",
+      "amount": 31518
+    },
+    {
+      "user": "0x945784FEf5049D62247cb132768591D1AFaC8246",
+      "amount": 1097167
+    },
+    {
+      "user": "0x946F1d5824f99362D3bF32f122c2c42AD808CE09",
+      "amount": 194
+    },
+    {
+      "user": "0x9509f7F497DB6c0Ec4025be4415c8fe2F442b0B6",
+      "amount": 4899
+    },
+    {
+      "user": "0x95272C5E0f8BD14Ed7f79656b3acE6b06c85E5Fe",
+      "amount": 109282
+    },
+    {
+      "user": "0x95BE1D1E7Fe0B6e6CEB97Eeb2435a170b33D4bfB",
+      "amount": 208
+    },
+    {
+      "user": "0x965d51A26A49aC420139A020A9Db018616d5E129",
+      "amount": 518706
+    },
+    {
+      "user": "0x96b901Da81e7f8D45a297615Bc32717f837b8A4E",
+      "amount": 465
+    },
+    {
+      "user": "0x97012911714C54565fc145e0b584FCADD6b4B9ed",
+      "amount": 82148
+    },
+    {
+      "user": "0x97e142399C4CbA7B4d36b40aa767F9643B34978d",
+      "amount": 2195210
+    },
+    {
+      "user": "0x97F8514E9703A7Fb63118bEFc9C09470516D792A",
+      "amount": 0
+    },
+    {
+      "user": "0x984b6d329d3aa1D6d5A14B134FB1Fb8BcC66D60C",
+      "amount": 27294
+    },
+    {
+      "user": "0x9a050a1Bb04Abf8635e96b63ee5FD735Fa26F89c",
+      "amount": 3525
+    },
+    {
+      "user": "0x9A116805DBD7ed692A694c3F37D8ea2F54027044",
+      "amount": 1146988
+    },
+    {
+      "user": "0x9A80B66902b2053feE6d3AfBef84d9CC0bd5c563",
+      "amount": 370237
+    },
+    {
+      "user": "0x9AbA8a1535D0cE58a1786EA0976Ed8463474a0B2",
+      "amount": 1057771
+    },
+    {
+      "user": "0x9b1a4fCb7AF2a1438F1F45B17d0018021d49A7E8",
+      "amount": 1366
+    },
+    {
+      "user": "0x9Bf90dFf0Db4dcA34846f53a79D22819A31FBC6C",
+      "amount": 384824
+    },
+    {
+      "user": "0x9Bfc25E552250ac2C00431D71C5f840B74e798fa",
+      "amount": 14436
+    },
+    {
+      "user": "0x9C015b1780682B9743B8C81D92b5311B4Def0076",
+      "amount": 393
+    },
+    {
+      "user": "0x9C65e00546a2ad566ff26E7cD68507303381aefd",
+      "amount": 2170922
+    },
+    {
+      "user": "0x9CE6E6B60C894d1DF9BC3D9D6cC969b79FB176B7",
+      "amount": 993449
+    },
+    {
+      "user": "0x9D0d919773E59914AE1243B557868e0d9Fe4B6a9",
+      "amount": 6076
+    },
+    {
+      "user": "0x9D2A9398fA3f98C2A1046EE71AD3F2Bd0c58B0a2",
+      "amount": 371630
+    },
+    {
+      "user": "0x9d4f51034c0a144A6Fb85BB8EC79d1b08e466530",
+      "amount": 0
+    },
+    {
+      "user": "0x9D674d432cf5F8C34e4e08aC769AB428db484FD4",
+      "amount": 614625
+    },
+    {
+      "user": "0x9D71657276a25c1D3B84E3Cb570E58e5B51741F3",
+      "amount": 439013
+    },
+    {
+      "user": "0x9DA3963f54F828649Ed1b82d1Ac6CD421194C293",
+      "amount": 0
+    },
+    {
+      "user": "0x9dc534E576Ac1A6C243A5b1210E3e968F23B8781",
+      "amount": 10377
+    },
+    {
+      "user": "0x9e2FaAae64cC1F40e9EaBd2f502811fFca2FD0eE",
+      "amount": 230890
+    },
+    {
+      "user": "0x9E8C646220613d68eaf2B947f46c2B4F52Bf3f45",
+      "amount": 492566
+    },
+    {
+      "user": "0x9F1f99190c0B93A1154b4C91d651C27b724a8A01",
+      "amount": 2
+    },
+    {
+      "user": "0x9f320E71cd0DF854112E76E2533D9e91C239d764",
+      "amount": 6775
+    },
+    {
+      "user": "0x9f63D8C42CD762C36BB3a63a13fdC3b7EEefa853",
+      "amount": 515335
+    },
+    {
+      "user": "0x9F91273b777586BAFC11a472a3c351ddf40a638f",
+      "amount": 40339
+    },
+    {
+      "user": "0x9fBa5259A1a4654212849E87CFdf5B28d5bbcB5e",
+      "amount": 10122845
+    },
+    {
+      "user": "0x9FDA3e5ACFfACA2b798eDBca0d1bDE23eFC2A732",
+      "amount": 1073207
+    },
+    {
+      "user": "0xA0b94Aa49c5F980E359E38e3519b5cc11AA95434",
+      "amount": 231001
+    },
+    {
+      "user": "0xA148Fe19EA6689e9EFC6D1CD8c8F834f6ceC86B0",
+      "amount": 7639
+    },
+    {
+      "user": "0xA1DAD3d78e99e13d868ac37226e66a97aAD37732",
+      "amount": 212378
+    },
+    {
+      "user": "0xa1E340bd1e3ea09B3981164BBB4AfeDdF0e7bA0D",
+      "amount": 19403
+    },
+    {
+      "user": "0xa23ee8C408fa242f64214351Afd7c5ef532519A6",
+      "amount": 140
+    },
+    {
+      "user": "0xa2807dFCfCdfeCCA8c2d617D4590462d22e2cd02",
+      "amount": 21915
+    },
+    {
+      "user": "0xa2Bcd1a4Efbd04B63cd03f5aFf2561106ebCCE00",
+      "amount": 1239
+    },
+    {
+      "user": "0xa2Bd597dAabcC3B707Ad35bCC8cEACA86d80e5EF",
+      "amount": 0
+    },
+    {
+      "user": "0xa34C5E8975A0C07aE796E91fc6210F778e34c128",
+      "amount": 261181
+    },
+    {
+      "user": "0xA3722b0dF43E0349517CBE969AdfafEF49Aa05Dc",
+      "amount": 236169
+    },
+    {
+      "user": "0xA3AEB1395F517901bBAD4562C95eE82A5E454110",
+      "amount": 452520
+    },
+    {
+      "user": "0xa3B75Dbb7654ba680a412D79Ad937C4262CAb1b6",
+      "amount": 972170
+    },
+    {
+      "user": "0xA3c3Ba59bA5AB7Adcc3A43cCA7a17F59d5Bb7443",
+      "amount": 1043069
+    },
+    {
+      "user": "0xa440194640151590D3FcF31891Faf709d925dBf0",
+      "amount": 2195066
+    },
+    {
+      "user": "0xa4532Fda54eACC90b075a0e9B3ad067C2BFc81d8",
+      "amount": 22191
+    },
+    {
+      "user": "0xa4AC6A7CBAaDE94746d8eC2cFd25793C88df179f",
+      "amount": 1029723
+    },
+    {
+      "user": "0xA4efD574dC61e954C277755fe96189273fFE50C9",
+      "amount": 0
+    },
+    {
+      "user": "0xA539965d3667721984F6A21E1b586924Bb826831",
+      "amount": 224167
+    },
+    {
+      "user": "0xa55c5E51Ed5aF6E024286613721A18eB02f0C55d",
+      "amount": 5157526
+    },
+    {
+      "user": "0xA567501aBf12f401C9E613b6323C43cf29B0F92c",
+      "amount": 373280
+    },
+    {
+      "user": "0xa586Cbf75fB4b8987bAb7d24BE4545fcaa0e757C",
+      "amount": 438142
+    },
+    {
+      "user": "0xa591d6d5B852d81e2Ee803e7E93bE2A373179EBc",
+      "amount": 3876
+    },
+    {
+      "user": "0xa63192bFC9869Ba4b9751b41CAFfe9C996CEf38a",
+      "amount": 431421
+    },
+    {
+      "user": "0xA6571B013b13F86f2E1278a1407Ff3Cda8cD3Cc1",
+      "amount": 210141
+    },
+    {
+      "user": "0xa669070D106E96CC2390523E9745B425a1b3a0E0",
+      "amount": 547599
+    },
+    {
+      "user": "0xa67C60AE18BE09F074a6c733a1cc06B63Ae53589",
+      "amount": 0
+    },
+    {
+      "user": "0xa67cD2E58aD72b700727b9920257Ac9F37878b26",
+      "amount": 0
+    },
+    {
+      "user": "0xa68c0c992CA96b0D74Aab97d25DDe6da3168F79c",
+      "amount": 16760
+    },
+    {
+      "user": "0xa6F473548CB679d60Cebf7C00e9b37816f0b1E17",
+      "amount": 91869
+    },
+    {
+      "user": "0xA7847c969A643A21a253f8C97b11488e3A29AD20",
+      "amount": 214533
+    },
+    {
+      "user": "0xa7C8dAdfF4F528A12363aC3790A8cbA15ed9920A",
+      "amount": 2159
+    },
+    {
+      "user": "0xA865bAd5270D9a1Ab66C191CaF516b497605a838",
+      "amount": 403297
+    },
+    {
+      "user": "0xa8b4C7F8B3d91b324F815252da74884E68FB4C4C",
+      "amount": 2157653
+    },
+    {
+      "user": "0xa8e32Be4CA13b271673f8b01F1eeACFde66FA413",
+      "amount": 886375
+    },
+    {
+      "user": "0xA97e730618644681fbEcaC297696C3727c8d8A75",
+      "amount": 0
+    },
+    {
+      "user": "0xa98b6119732E75DF00BBBAD3aaaAd840727bBaf7",
+      "amount": 2262474
+    },
+    {
+      "user": "0xa9EA81e88842C7aC6DAe2b933a4c7D29b9843eE5",
+      "amount": 0
+    },
+    {
+      "user": "0xAa1698f0A51e6d00F5533cc3E5D36010ee4558C6",
+      "amount": 117508
+    },
+    {
+      "user": "0xaA4D9f1C503281594ce7A9cBcfC3ACAf49862633",
+      "amount": 1762
+    },
+    {
+      "user": "0xaA92DF9Cc9890732f7946b410553678f045FB668",
+      "amount": 936777
+    },
+    {
+      "user": "0xAb26DD0214E3063f03F6Ed6462B3A45f755Dc10B",
+      "amount": 35817
+    },
+    {
+      "user": "0xAD42D4952ecB1198220D1163aD30e7313eD3ac78",
+      "amount": 983
+    },
+    {
+      "user": "0xaD5F30d2EcDC7d7c8dfc1BE7D1fa1C01Bf8faa84",
+      "amount": 138309
+    },
+    {
+      "user": "0xAd84e06c8b0b690Ca4D3CF314e3dbdaBDA90dB91",
+      "amount": 18865
+    },
+    {
+      "user": "0xae983237b3E202D5cBEFf1EDF071Fd45158472A3",
+      "amount": 5216
+    },
+    {
+      "user": "0xaf5Ae7CdAff6f1f457bc88F0989c0AF7f583Ab43",
+      "amount": 8329
+    },
+    {
+      "user": "0xAf5feb6D44602eBEBE0f3c44Dc3Bc24a8714C148",
+      "amount": 21600
+    },
+    {
+      "user": "0xaf9B571e36543BE67FbcC979F6d52A2dbB2E2C56",
+      "amount": 0
+    },
+    {
+      "user": "0xafaE671890DFBA8A9743a8eD7Fc80A5cf1b02e4F",
+      "amount": 0
+    },
+    {
+      "user": "0xaFDe57fe30e4dA2498741f22b2cF1F0cBf850ad3",
+      "amount": 28469
+    },
+    {
+      "user": "0xaFebc163FFdFd1e19716658d68d8c50CD86fBa8f",
+      "amount": 231248
+    },
+    {
+      "user": "0xb022F9c7e956ff45d90F6c0B907C5A3fa71e3ff1",
+      "amount": 1119092
+    },
+    {
+      "user": "0xB0531283352edb6Da9C2B1A9F45f88878Dc2D244",
+      "amount": 1062674
+    },
+    {
+      "user": "0xB0A2F966b33419D37d7B72fAb169F90CCb9bB7A9",
+      "amount": 45693
+    },
+    {
+      "user": "0xb0FB2be31DE8D5e89CD19c2A090Adac9DE360a76",
+      "amount": 31677
+    },
+    {
+      "user": "0xB18ddF58Db4083614379E8C1Fc21d810f422DAD6",
+      "amount": 85
+    },
+    {
+      "user": "0xb1c6bCd66322E1d21aC1Bd71FFc6b570A1E67b80",
+      "amount": 557370
+    },
+    {
+      "user": "0xB1caec6D89f2d62DB3416054096070c340DC2c41",
+      "amount": 0
+    },
+    {
+      "user": "0xB1e2194F43c3C0319B3b6fa560d47BC57632cC56",
+      "amount": 221452
+    },
+    {
+      "user": "0xB216c2949216a680A00DF9A12e5de3565Cb18B35",
+      "amount": 2181
+    },
+    {
+      "user": "0xb2191e2ABF2930d34f645DD07CD125f59Ca30c7e",
+      "amount": 0
+    },
+    {
+      "user": "0xB2238b54b31f2f876a26985bcbfB4D5C18A0c92b",
+      "amount": 1050846
+    },
+    {
+      "user": "0xb25108048d4A700A84E7904edf6AE7e53048d573",
+      "amount": 20
+    },
+    {
+      "user": "0xB2DC2da9684DfEF77CFa5c6bb07e733023715292",
+      "amount": 0
+    },
+    {
+      "user": "0xb2E2600c16c3B8E67029CE14A6f070FCB90d0940",
+      "amount": 0
+    },
+    {
+      "user": "0xb2eCe89dDea99dBC37F70e5Ba856c3bd54253A3a",
+      "amount": 6944
+    },
+    {
+      "user": "0xb30283a90eb42cd6Ed821449F11519EA2096A93c",
+      "amount": 36214
+    },
+    {
+      "user": "0xB37FA7eA72c11f85E385B7af1e7616FCCF965D39",
+      "amount": 225
+    },
+    {
+      "user": "0xB397936F0966f28A3f87D0F40110505DabF5E5Ba",
+      "amount": 194573
+    },
+    {
+      "user": "0xb3Ba786A4fd6f096e9d7bA846391aDFEb97f9906",
+      "amount": 82315
+    },
+    {
+      "user": "0xB41AE052D7449a4640f27997a4AAC2f277dDe259",
+      "amount": 327668
+    },
+    {
+      "user": "0xb47772E31fDABB81e2214CA4d84Bce283Ef17568",
+      "amount": 3
+    },
+    {
+      "user": "0xb5359FD6a3fC8cd96333A70D636CcAEFdC363C92",
+      "amount": 201161
+    },
+    {
+      "user": "0xb53E9F905CE747D2E0a55f3c793d8f4d164600c6",
+      "amount": 3747
+    },
+    {
+      "user": "0xb5b3fF0F1999d34E8fd3e62Db2e18197fF580e2C",
+      "amount": 0
+    },
+    {
+      "user": "0xB72B19B89d602754509Bc91905CBEEDC82EC08Fd",
+      "amount": 101888
+    },
+    {
+      "user": "0xb7710de75bF4f10858F994bf863a71e4a76b5F47",
+      "amount": 31502
+    },
+    {
+      "user": "0xB7767355aa657b3Ed66f0de24dA5018a5E2862bd",
+      "amount": 1101253
+    },
+    {
+      "user": "0xB8d94bB9Bf261C699fF06325ba44C417f0508EF6",
+      "amount": 57
+    },
+    {
+      "user": "0xb911Fcce8D5AFCEc73E072653107260bb23C1eE8",
+      "amount": 18719
+    },
+    {
+      "user": "0xb93ca0b396cE95Bc80e623800Ddb15Ad2c0bca64",
+      "amount": 477620
+    },
+    {
+      "user": "0xB96c0B5e05AEF891177B9B49135E76016f95Cd1a",
+      "amount": 60992
+    },
+    {
+      "user": "0xb96D49C567430ac160A7e75d07562Ca219909189",
+      "amount": 1044
+    },
+    {
+      "user": "0xB9779AeC32f4cbF376F325d8c393B0D2711874eD",
+      "amount": 181568628
+    },
+    {
+      "user": "0xb9b88D7631666710c61d84CFc77e59F2f763a26C",
+      "amount": 18010
+    },
+    {
+      "user": "0xb9B98dABcb7f255824aA024b53611d44C223a545",
+      "amount": 4478
+    },
+    {
+      "user": "0xb9be40bdEc31ec3935830ACC8BCAAd1A431F8BB0",
+      "amount": 4287
+    },
+    {
+      "user": "0xBa03Ba802059269F7Edc976F008D2e8EaA7EdD9f",
+      "amount": 517604
+    },
+    {
+      "user": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      "amount": 0
+    },
+    {
+      "user": "0xbb0593c50b06410e03032f581369220147854d15",
+      "amount": 455
+    },
+    {
+      "user": "0xBB3bAe51EAa44Cf060Cd60e1A5149ad222eeB8a4",
+      "amount": 993482
+    },
+    {
+      "user": "0xbb46131D139b64B5739c857c1583C07cA34e7B2F",
+      "amount": 1106926
+    },
+    {
+      "user": "0xBb4E37166B6E63F74104Bc8114e9eA2C1C4dc940",
+      "amount": 499
+    },
+    {
+      "user": "0xBb5BB1C6e5feAb94C0c3AFf343fc2A7Eba8C7A14",
+      "amount": 1538568
+    },
+    {
+      "user": "0xBBc89a1db6B49B7c1DA266058f6598B26B4E3104",
+      "amount": 6878
+    },
+    {
+      "user": "0xBc5D814E37b94cdeB583362F97bD8C423a66C5A9",
+      "amount": 1107319
+    },
+    {
+      "user": "0xbc9453b6a0F1d08Dab770b47900DBE2Ab0DB432D",
+      "amount": 52847
+    },
+    {
+      "user": "0xBcd8Ff0656b31bE25E3241eAD9B7EeF9FcD9d48d",
+      "amount": 41603
+    },
+    {
+      "user": "0xBD0eb89503101326cE14717c3CE07D8412105b9a",
+      "amount": 3801
+    },
+    {
+      "user": "0xbDfA4f4492dD7b7Cf211209C4791AF8d52BF5c50",
+      "amount": 4346970
+    },
+    {
+      "user": "0xbe0c196db93Fa6228819F3B4dc1E297088129E9F",
+      "amount": 21567
+    },
+    {
+      "user": "0xBE116897C7C0F92891212C96E685c429383aAF88",
+      "amount": 230438
+    },
+    {
+      "user": "0xbe54e22392a61AC7ce68B726f794c2F3114b1E2e",
+      "amount": 7273
+    },
+    {
+      "user": "0xbE9262c0dD8ba5117549c5940ede916416D95fEC",
+      "amount": 5964
+    },
+    {
+      "user": "0xbEa59CC9Bf05E1481a95f2aB50564fce37303e55",
+      "amount": 74996
+    },
+    {
+      "user": "0xBEB98a87371674044776C2dF1de1e9A12DB5f5aA",
+      "amount": 19438
+    },
+    {
+      "user": "0xBEe377A1F80f57FCCF64f0Ac86c54a89402AcA05",
+      "amount": 10360
+    },
+    {
+      "user": "0xbF75Bf95De498D88746565c012d2e7005569e6fa",
+      "amount": 0
+    },
+    {
+      "user": "0xBFb43E24D2fD43a3348277Ced47862C827058684",
+      "amount": 0
+    },
+    {
+      "user": "0xc04Aa49a24CA82eE5C048F275AEE6E9F74Bd141D",
+      "amount": 212967
+    },
+    {
+      "user": "0xC05AA471f3bF88c940812d17A7630F620f003778",
+      "amount": 10118
+    },
+    {
+      "user": "0xC078419833F9cd7E22aF92D703bBE7AD80b62B1b",
+      "amount": 386268
+    },
+    {
+      "user": "0xc0AFEF712a1341cA78dA145B2AFAd346E8C3574F",
+      "amount": 1042315
+    },
+    {
+      "user": "0xC0d3C131F0AC592B558aEa718790A2eE07B866eA",
+      "amount": 46188
+    },
+    {
+      "user": "0xC0fC3dDfec95ca45A0D2393F518D3EA1ccF44f8b",
+      "amount": 0
+    },
+    {
+      "user": "0xC118488EcfE46E6357B27EaE18A85064DCE0eB0f",
+      "amount": 15755
+    },
+    {
+      "user": "0xc181340813A3B69bD0CDE971a317cd47DF1Cde96",
+      "amount": 1535417
+    },
+    {
+      "user": "0xc1b615f77F350e598fAeDE0A1A43549800f81881",
+      "amount": 4328
+    },
+    {
+      "user": "0xC1f0a19C51eE7180fB7d0800E424dB3A99cE9c5d",
+      "amount": 0
+    },
+    {
+      "user": "0xC2757Bb440C16c462780eBcFFa820aA6b541fb6A",
+      "amount": 10481
+    },
+    {
+      "user": "0xC277Ff4d7Fd48676c05B44C28c35ad1fEC8de3D9",
+      "amount": 2159
+    },
+    {
+      "user": "0xC280206437cE9Dd82AE4910908108b69b3a2D36a",
+      "amount": 75426
+    },
+    {
+      "user": "0xC29Cfde65AbeEf6fD2B4f65E2637e975E4186F89",
+      "amount": 0
+    },
+    {
+      "user": "0xC2afEdB405826D45205b9C618Cf564617C0D345F",
+      "amount": 65856
+    },
+    {
+      "user": "0xC32De03e195fa0E2E59338968c37d53B7a151C98",
+      "amount": 65103
+    },
+    {
+      "user": "0xC3bdB42d7eD777FEf29c54fC8779B9CBcdA511AC",
+      "amount": 204282
+    },
+    {
+      "user": "0xC3bfBfC3ADd4a6568C080228363E002A0fe7758d",
+      "amount": 150
+    },
+    {
+      "user": "0xc42Cfe72204c2E4c77e5935884e40cE70D5f6B01",
+      "amount": 1107505
+    },
+    {
+      "user": "0xC478dB60f8Bba21727c3f33C7e1c2D5008b3AEB5",
+      "amount": 1034574
+    },
+    {
+      "user": "0xC48f325B1810283049d829B60e6d10f8AEf02911",
+      "amount": 10654
+    },
+    {
+      "user": "0xc4a335A4C58a0577aE41c1dE23e4c5A455ed6B6d",
+      "amount": 219250
+    },
+    {
+      "user": "0xc52b2483D861850e9b7fa9D86af42e0A52fa4a50",
+      "amount": 3408522
+    },
+    {
+      "user": "0xc57E40a04703A5644454F7f9692E11B82B2b7e94",
+      "amount": 1067924
+    },
+    {
+      "user": "0xC58b3Fe03ddd878eE1C26dF7E7c82c351add5A51",
+      "amount": 4303245
+    },
+    {
+      "user": "0xc5d0545d3F55473dc778e9dED58434C2385CeaA3",
+      "amount": 1077107
+    },
+    {
+      "user": "0xC5FB2D8C2Cb00AD88dD8e5FB9a0741f92371A946",
+      "amount": 8073
+    },
+    {
+      "user": "0xC63eA8a88f6aEE27323FB70F869064D76198E5d5",
+      "amount": 213
+    },
+    {
+      "user": "0xc648B2EeE210e51A4952739C71f13Ca562d88b28",
+      "amount": 19257
+    },
+    {
+      "user": "0xC66Aa1De85F125132C6606724F45a7567d42A073",
+      "amount": 1072432
+    },
+    {
+      "user": "0xc6f3aAc21d8282f166938a8B30a9Ec62De30aCcC",
+      "amount": 2866
+    },
+    {
+      "user": "0xc70A367C2751953caC138F1374c44090Cad543D9",
+      "amount": 182343
+    },
+    {
+      "user": "0xC72525aB51a96cABe5d810125a08A4fB36740b07",
+      "amount": 218242
+    },
+    {
+      "user": "0xc73Aa170b092Ed6a6497fCc58aE655e0B5EA542E",
+      "amount": 0
+    },
+    {
+      "user": "0xc7Bd0345621Be74C0ce406FB16076CF47d467320",
+      "amount": 964402
+    },
+    {
+      "user": "0xC7e27aF1139bbc9c690BA83D90912048ea065A36",
+      "amount": 2605
+    },
+    {
+      "user": "0xc814275d8B5e76BD163d10b9A9CC626439b6F39C",
+      "amount": 15357
+    },
+    {
+      "user": "0xC844639E2F6fB4834Cb4e373F1377dbD05D6fc93",
+      "amount": 13
+    },
+    {
+      "user": "0xc8dDbbd6a6B846c1753290B62E18F9F51c6fBb53",
+      "amount": 433668
+    },
+    {
+      "user": "0xC8fb2CC5a5f1aF77bDee42131Cfed3b767e008Fd",
+      "amount": 0
+    },
+    {
+      "user": "0xc903a3112B4F2C04Bd34Fc2c04Db029F8e43bbb5",
+      "amount": 21616
+    },
+    {
+      "user": "0xc9554C227A8B78283F8938B81A54f3155A5e3996",
+      "amount": 219539
+    },
+    {
+      "user": "0xC969bAe7330DD6c2785A8861Dd8A003261839F29",
+      "amount": 109759
+    },
+    {
+      "user": "0xca06e30c9A3dBa8F424708CF481eFd952243db1e",
+      "amount": 210658
+    },
+    {
+      "user": "0xcA0C4BA40f3B23BB87A045E8Fe4750E87BBDD5a3",
+      "amount": 22035
+    },
+    {
+      "user": "0xca3Bfa626B70e23C57416ec832705bC1DC384F19",
+      "amount": 4382
+    },
+    {
+      "user": "0xca4aD39F872E89Ef23eABd5716363Fc22513E147",
+      "amount": 60277
+    },
+    {
+      "user": "0xcA5089c112Aac4462c36b437C0bFbf5E527e0092",
+      "amount": 2220
+    },
+    {
+      "user": "0xcb00d60f61247D930Caa4C7f88AbB30219CD6C47",
+      "amount": 1084159
+    },
+    {
+      "user": "0xcb39b35CaC71086E38aBC9dC1c787102A6D6F156",
+      "amount": 0
+    },
+    {
+      "user": "0xcb46e654cb049F2841D2da3bd658DC92a44a7488",
+      "amount": 1109369
+    },
+    {
+      "user": "0xCbe3b686C1c8037892211b37f51d1d04d1BeBB51",
+      "amount": 1109492
+    },
+    {
+      "user": "0xcC40423d08654c29517Ba5d70bEc48cDFcC35A5F",
+      "amount": 62811
+    },
+    {
+      "user": "0xCcC91DA153C904FB21B71815035720d7C4D7B13b",
+      "amount": 21830
+    },
+    {
+      "user": "0xcD14610e6Ab9bDF20C674B1D6b47C4E4f4C641d8",
+      "amount": 931178
+    },
+    {
+      "user": "0xcd285573A2E9881313EA6A07ABAe3a500EfEAD20",
+      "amount": 12
+    },
+    {
+      "user": "0xcd2a6D4762e3330C38D3038286aF9e80419b51f3",
+      "amount": 2030845
+    },
+    {
+      "user": "0xCe6208894BCc98c9B00683A5676fd98c9746416e",
+      "amount": 22838
+    },
+    {
+      "user": "0xCE655486C6Da0e46219EFB09d653D3362733A302",
+      "amount": 1195510
+    },
+    {
+      "user": "0xCE845e7c6C870A0Ade50A084debB1135ddc5a775",
+      "amount": 95
+    },
+    {
+      "user": "0xceA52Cb4AE239cCC946Ca267637AdD33B4511755",
+      "amount": 0
+    },
+    {
+      "user": "0xcec7aB767B4F8E1d05614d864B9E025cE860b815",
+      "amount": 1076804
+    },
+    {
+      "user": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559",
+      "amount": 0
+    },
+    {
+      "user": "0xCf8fcb37b7E4Af7E2F79A6ff813B4d899Ae70bDc",
+      "amount": 210263
+    },
+    {
+      "user": "0xd047a08856F29195b1475c41502f7b1aB5b6d4A4",
+      "amount": 79476
+    },
+    {
+      "user": "0xD075d9CB27E42b279c9F81BF8455fE65108d72d7",
+      "amount": 331712
+    },
+    {
+      "user": "0xd0F60789A12fAd1FA57892736cB45D40a413C378",
+      "amount": 0
+    },
+    {
+      "user": "0xD121AA55f2b343E0cbD81cbdB9e09521b915496f",
+      "amount": 391380
+    },
+    {
+      "user": "0xD1736cAC8c3497bA0C68Fd515479C3f4fCc891B1",
+      "amount": 0
+    },
+    {
+      "user": "0xd1FefAD9347152F36F5B586C764a0563f10fD488",
+      "amount": 123386
+    },
+    {
+      "user": "0xD23D99edC887F666032C8FfE5F1BBd2C96EB7aDC",
+      "amount": 204513
+    },
+    {
+      "user": "0xD296E124B9BfE56D285a66C3F8306AEAF3C78465",
+      "amount": 19162
+    },
+    {
+      "user": "0xD33284930474fd9CD8b09735026Eb1613c8A80A6",
+      "amount": 654
+    },
+    {
+      "user": "0xd334533980C201c1b93e39bBE6bD1E04be5C0f5D",
+      "amount": 464214
+    },
+    {
+      "user": "0xD375DdfC27C6422500123FBC4CA0141aFDc17244",
+      "amount": 0
+    },
+    {
+      "user": "0xd3E8E26B1B2A520eBa7c9f3db9410a20443E8dC7",
+      "amount": 2177
+    },
+    {
+      "user": "0xD3EA93B78FB9218b43da2113C0b84fE07b34Bd9f",
+      "amount": 1045845
+    },
+    {
+      "user": "0xD41E3F7430826420A4E8b6B89E2a4f6A45D17a7A",
+      "amount": 5360
+    },
+    {
+      "user": "0xD421B58af6e1DdEc7d0C0c3ACeE67EDeD59FAE84",
+      "amount": 484700
+    },
+    {
+      "user": "0xd455712e43582134F101a0C686d26548B5438A3b",
+      "amount": 456963
+    },
+    {
+      "user": "0xd4637fBfe71636dec0f05eE9CD8D313fD3a8612E",
+      "amount": 39844
+    },
+    {
+      "user": "0xD47BDD78c4eCA4b5aC941a4B4cf62b34Be730c42",
+      "amount": 1126432
+    },
+    {
+      "user": "0xd4a4D6ECE06718844f46A5d264be14a10e4af15A",
+      "amount": 19536088
+    },
+    {
+      "user": "0xd506017c7083214d0e4FEa5Bf5229f3f907d9BdA",
+      "amount": 4219050
+    },
+    {
+      "user": "0xD5891c4c48782839C433b4e1D6Dc8d825cD12565",
+      "amount": 0
+    },
+    {
+      "user": "0xd5a1E728DeE9225933dA8109B4EaB6C034Ba28b1",
+      "amount": 2070
+    },
+    {
+      "user": "0xd6623E980405D5fF10e8Fc48A36F9DDF8030D432",
+      "amount": 462099
+    },
+    {
+      "user": "0xD6628233EC9d3f004F00f3769B33368cA3c54330",
+      "amount": 16725
+    },
+    {
+      "user": "0xD788778C0495feE2d0d434Ec4222B0599297A71a",
+      "amount": 1049448
+    },
+    {
+      "user": "0xD7cBc4d23Fe24a70Ac96d6EC5eef63101C71e383",
+      "amount": 937429
+    },
+    {
+      "user": "0xd7d4A7f14265B0A69AE482b85B0a8496c3F99fb9",
+      "amount": 186
+    },
+    {
+      "user": "0xd827bFAec32269223223D57A7578fC6a771C652f",
+      "amount": 329254
+    },
+    {
+      "user": "0xd8D58bb603B2281E10Ead25213bc76AD1a7A8B9e",
+      "amount": 12832
+    },
+    {
+      "user": "0xD996F0cf65f3227D5E49d50a6A3Cc9fb348F9feF",
+      "amount": 5256
+    },
+    {
+      "user": "0xd9DA82e85dA8dc0bD8Da9Dd651FCFcD853A74308",
+      "amount": 2159
+    },
+    {
+      "user": "0xDA1EDc243F4B729867f727EB1C04E9F733Dcd314",
+      "amount": 5570
+    },
+    {
+      "user": "0xdB0fCfC1f7Cdb01153b4cCcD4A2bac3899c44955",
+      "amount": 32502
+    },
+    {
+      "user": "0xdb5A7b0728Aa0041fE66a4f775C77e559aA81248",
+      "amount": 1292910
+    },
+    {
+      "user": "0xdb6B7B31E99f78F322d9148aE719dBA5878AB08b",
+      "amount": 369310
+    },
+    {
+      "user": "0xdBC0513Ae340A4B12dF945C9d5B5a3Fe8B9e9642",
+      "amount": 7227
+    },
+    {
+      "user": "0xDBf0c8eDa667Df16D4340d8D20304587E59C57c0",
+      "amount": 3365
+    },
+    {
+      "user": "0xDC1CA5788e209A5fcC70B983399B37417B6Ac64b",
+      "amount": 1142406
+    },
+    {
+      "user": "0xDcE62b21A8B1A9b39dD3ded27C876d416CC91B3e",
+      "amount": 488056
+    },
+    {
+      "user": "0xDD0d073562eb69f387b3D0217f1F2E8F8a0D9005",
+      "amount": 418707
+    },
+    {
+      "user": "0xDd1bA465b713ceF58952A282D94Caa639ff67597",
+      "amount": 4711
+    },
+    {
+      "user": "0xDd4Fb7a19AFDD320f9dB75BD80073f12385c6A03",
+      "amount": 1312184
+    },
+    {
+      "user": "0xdD959b820CECd4c069a85A1eF1187bFc537c8387",
+      "amount": 85
+    },
+    {
+      "user": "0xDDC71f70A2041a3157d443e8F05a8b3D8a613f24",
+      "amount": 2
+    },
+    {
+      "user": "0xddf5F4492685F9e7EB9Ee9a10cA07634F13F8b17",
+      "amount": 0
+    },
+    {
+      "user": "0xdE602e913Ae01895cdDF7DECf96A9162C527D9E1",
+      "amount": 23103
+    },
+    {
+      "user": "0xde64F98BaECE7282973cE8d67cd73455d4748673",
+      "amount": 0
+    },
+    {
+      "user": "0xde95c7407952790142662778c26cf69836ab3123",
+      "amount": 760
+    },
+    {
+      "user": "0xDEb717076B35B3Dedc59f37B420580757C618426",
+      "amount": 51202
+    },
+    {
+      "user": "0xdED077cCF229aBf68882d062d97982f28D6D714D",
+      "amount": 18936907
+    },
+    {
+      "user": "0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57",
+      "amount": 0
+    },
+    {
+      "user": "0xDF087Ecd48e4422B4bfFDA7Af24E07849Fc3686C",
+      "amount": 1696
+    },
+    {
+      "user": "0xdf4E06a49A4Df04606935723113150276360B443",
+      "amount": 960657
+    },
+    {
+      "user": "0xDf697123Fe8c948B4EA750d81D88688D1f67Af49",
+      "amount": 37792
+    },
+    {
+      "user": "0xDF83756D2c07837a7a3366738520E53128Cefc45",
+      "amount": 219730
+    },
+    {
+      "user": "0xDf9238A84EAFAd8A2d6e1291dBC722c93eeB6d87",
+      "amount": 65
+    },
+    {
+      "user": "0xdF9d6af047E313BAb3b3a854c439D01F54386118",
+      "amount": 0
+    },
+    {
+      "user": "0xE0023542c050e6dBBd0a1099C6B2d8e004D55F48",
+      "amount": 294
+    },
+    {
+      "user": "0xE0166B036d5d4c5f6c7CC31fCA537e89dcA5944D",
+      "amount": 22698
+    },
+    {
+      "user": "0xe01AE7Cbee482f92103fC82FD65740c44d00Aebc",
+      "amount": 67280
+    },
+    {
+      "user": "0xE03D3BA9B81A9F71A39d2a1BeFD5587D698B220e",
+      "amount": 27245
+    },
+    {
+      "user": "0xe0Bfa1b7d73Af95243031e5129bCEAc0E3611858",
+      "amount": 2005
+    },
+    {
+      "user": "0xe0F0DCd50910925f123b5E88aaefF5795CAA16eb",
+      "amount": 157359
+    },
+    {
+      "user": "0xE1544d22C6a602a781052eB136DecFE7cf5dD632",
+      "amount": 95
+    },
+    {
+      "user": "0xe1B565B2FFf708068c4C489FF425A0A5abdE495C",
+      "amount": 233
+    },
+    {
+      "user": "0xe1E4C9F2dddcbCCb5d722334bFE1E2993cB2feab",
+      "amount": 10629
+    },
+    {
+      "user": "0xE216cBec1F1b9F4FbFe37d22BEe6909258CF1DF0",
+      "amount": 381
+    },
+    {
+      "user": "0xE327ad1Aa718ae837Be5B9BDDeBDCb321c7609fd",
+      "amount": 3628
+    },
+    {
+      "user": "0xe32e3BD2EC560513CaB4757564cA50D13cAF9F7F",
+      "amount": 6625
+    },
+    {
+      "user": "0xe346774a046f98444650A0A4F1646b2C515e1380",
+      "amount": 62603
+    },
+    {
+      "user": "0xe363F661d72fDA2Ff0DFF9b98C95Da6f5E14519a",
+      "amount": 48290
+    },
+    {
+      "user": "0xE37455D43B4C1148136CF7fa0F33a379FB23F0C0",
+      "amount": 216590
+    },
+    {
+      "user": "0xE37e799D5077682FA0a244D46E5649F71457BD09",
+      "amount": 0
+    },
+    {
+      "user": "0xE3B89E352aaDd558489Ec87F6B64b299C0C4b553",
+      "amount": 10846313
+    },
+    {
+      "user": "0xE5044712c74Dcba77ECA8Fca073Ebbe6F0e4Abe2",
+      "amount": 21997
+    },
+    {
+      "user": "0xe52EE63EF08D48E0be1e6781bE75BDeDF1cDE15a",
+      "amount": 848
+    },
+    {
+      "user": "0xE5698Bab89e046d7a1d0f27AB258556ea6F2A1aa",
+      "amount": 31520
+    },
+    {
+      "user": "0xE56Ab1Ed97AE77a723ED344BaC076c1c189dd7CD",
+      "amount": 1077507
+    },
+    {
+      "user": "0xe5e12924e43C9eC53284fe63cFF7E69d32FE7Afb",
+      "amount": 0
+    },
+    {
+      "user": "0xE606A466ABa5CA7D89b08bD19dd10C43b95814f6",
+      "amount": 965144
+    },
+    {
+      "user": "0xE620CF1f08935350d7f0eb09C270A7F3cfE68039",
+      "amount": 109280
+    },
+    {
+      "user": "0xE644fad77183353E6a156B9B172e5803889b92cF",
+      "amount": 658
+    },
+    {
+      "user": "0xe67920f1d57926B3F366FBA294273D68347A471d",
+      "amount": 2159
+    },
+    {
+      "user": "0xE6E65364e07AF5d5284845ba63DE69aB1e7a4962",
+      "amount": 183350
+    },
+    {
+      "user": "0xE6fB99a9977E92d0608a7DD74795a7EFfb455611",
+      "amount": 1015495
+    },
+    {
+      "user": "0xe74cdCa69A3244753Df97753008aFD1Ae7C642ad",
+      "amount": 221536
+    },
+    {
+      "user": "0xE7780472db284b3c9847e931ae0f6C2c4Fb45502",
+      "amount": 6336
+    },
+    {
+      "user": "0xE7d19D9e9dBf2287f141Adc3c987e1dDa692ad3A",
+      "amount": 5113
+    },
+    {
+      "user": "0xe7f4DDE279D9278C92D7008f240D23Ecd45280d8",
+      "amount": 98
+    },
+    {
+      "user": "0xE8078FFa8b9ACB9cf314A9d9e6C148181e6C8851",
+      "amount": 883348
+    },
+    {
+      "user": "0xE80F70B360d049E5060b5CCE54BA38808334d633",
+      "amount": 11388989
+    },
+    {
+      "user": "0xE81761B4ABcC13860c2C46597bfaEEa5b02e05Da",
+      "amount": 3979
+    },
+    {
+      "user": "0xe83cBA9b0F507E8F509A6E325c05e16244744B35",
+      "amount": 960310
+    },
+    {
+      "user": "0xE90AEA7a6CC6fd92AAFe7FF57cB2B4908eEA7aBa",
+      "amount": 109751
+    },
+    {
+      "user": "0xeA10beBF62Ad868617FbEeA955A973f08fE7B274",
+      "amount": 16134
+    },
+    {
+      "user": "0xeA9BdE7A71C015eC8ebb604c66F3F2D8E626348f",
+      "amount": 3836
+    },
+    {
+      "user": "0xeab3451266f567AF17e1b0a9aA27C82eacA490d6",
+      "amount": 0
+    },
+    {
+      "user": "0xEAE679eA220E6be182E25A8C2B49f92a174C0982",
+      "amount": 109749
+    },
+    {
+      "user": "0xEAf10B51b415bd4E4486DD3a8F4Dfe99a598B16E",
+      "amount": 1051077
+    },
+    {
+      "user": "0xeB1BcBfEC30297E70ce7Fda0a6729A233c957117",
+      "amount": 1073629
+    },
+    {
+      "user": "0xeb58C719ada8529ac8BAc479Fa11B79F5dd2aCF7",
+      "amount": 39467
+    },
+    {
+      "user": "0xeb5b68eCAb52DFD5Ee4C31d70c0E299d4F1Bf1dF",
+      "amount": 258
+    },
+    {
+      "user": "0xEb84fD7474ECBceD7F40f7fd0Ee6475Ca0Aa0288",
+      "amount": 5353930
+    },
+    {
+      "user": "0xeb9eD3A445420864FC5f39F0D03EFA33F301f7d8",
+      "amount": 21950661
+    },
+    {
+      "user": "0xEBcC98573c3cd9b5B61900D1304DA938B5036a0d",
+      "amount": 10194
+    },
+    {
+      "user": "0xEc5C2B633862B9AC4accA2F5e60fF94E768289d2",
+      "amount": 32041
+    },
+    {
+      "user": "0xec8601F7Eb6887e57dFea71F0daB5Ab00A50762a",
+      "amount": 1334271
+    },
+    {
+      "user": "0xeCFfF10096744FFA87aB8F9E34DC9A8a77575ce4",
+      "amount": 61067
+    },
+    {
+      "user": "0xeD2C2CdEc695be3A4Dc421c1A8a6756dc5A927b6",
+      "amount": 1093997
+    },
+    {
+      "user": "0xeDE1FAaF984763A544Ac3E95b4198434c552A2a3",
+      "amount": 1193206
+    },
+    {
+      "user": "0xee7b392de9a6501238635fD191604E234A5f2519",
+      "amount": 1032187
+    },
+    {
+      "user": "0xeF76e8486416061CDc0c5bf7DF45d172D53BBF56",
+      "amount": 1613891
+    },
+    {
+      "user": "0xeFF0E3108f2C00ab7852248bC3887964E243c9e8",
+      "amount": 11834
+    },
+    {
+      "user": "0xf00bFe2CD4Af1c975a19f030F86F5e50c3249B80",
+      "amount": 226002
+    },
+    {
+      "user": "0xf0cC4CDCA895C67E49C37E034B24f73f13EBf066",
+      "amount": 0
+    },
+    {
+      "user": "0xf0Ff94D13F24acD543cA9d5b1E6f64bE5a2617AA",
+      "amount": 970945
+    },
+    {
+      "user": "0xF15e11C5E7A3aA9e65647540eC25472d33E9c98F",
+      "amount": 45190
+    },
+    {
+      "user": "0xF180ac3fa94E626eeaEF4F401A146dB36a029A28",
+      "amount": 1566572
+    },
+    {
+      "user": "0xf195C1bbF8c75053A9BA2B456c8D57E431fa4d0f",
+      "amount": 2161585
+    },
+    {
+      "user": "0xF199d11E39a54b5F71087854F74C0401B949bbd3",
+      "amount": 32925
+    },
+    {
+      "user": "0xF1A7ECCe1f30546A7dD3B9007ef6E0964fEC1A86",
+      "amount": 244762
+    },
+    {
+      "user": "0xf1c09A12CA9c6Cc67A311a720aDFab41A7b67297",
+      "amount": 20585
+    },
+    {
+      "user": "0xf1d1eCef53b212c88b7Cd2A532de721649fA431f",
+      "amount": 81512
+    },
+    {
+      "user": "0xF213CBa75D17167CD362d8E7Fb1DceFBee703fA0",
+      "amount": 0
+    },
+    {
+      "user": "0xf291b752351a19e81f7B8A40790d2BDbB53a957d",
+      "amount": 20141
+    },
+    {
+      "user": "0xF2Dce4A6DdC0CF956f4b18D6EAA1E28BFE706911",
+      "amount": 0
+    },
+    {
+      "user": "0xf3116e7aFe780f1335a041891f60107481CecC78",
+      "amount": 56951
+    },
+    {
+      "user": "0xf3dB592D8fDd8Ee5156b993C099DFFA282cFff6E",
+      "amount": 286953
+    },
+    {
+      "user": "0xf4030cd3B27e279D011C88E6073eE6b903b83d36",
+      "amount": 0
+    },
+    {
+      "user": "0xF40E60F44163BDF8De5B7227f0F41a35bA09790b",
+      "amount": 0
+    },
+    {
+      "user": "0xf486d56ccE70c481b3455aF901fCC4F03FeE8107",
+      "amount": 1887389
+    },
+    {
+      "user": "0xf4bA8e97d59284ebfc7ab33a509bb8938748d492",
+      "amount": 0
+    },
+    {
+      "user": "0xf4F1a05dCF0bfd5b5d6ffcfB1a14e6e71b55b7f3",
+      "amount": 0
+    },
+    {
+      "user": "0xf578475B51f9f77b2421C321D4c0D530942a5448",
+      "amount": 499958
+    },
+    {
+      "user": "0xf5A1eaC53F7eB5Eb6Fce11E70f47163aCCdFa067",
+      "amount": 1098335
+    },
+    {
+      "user": "0xF6ad7aa519495a9Cf60e10F4d885e54ea5119f7b",
+      "amount": 15666
+    },
+    {
+      "user": "0xf6c37a0Efcd497193Bb9472c7BbfAefb8f9286f6",
+      "amount": 1493
+    },
+    {
+      "user": "0xf6CE79155Af951Ed226F9ea5518B17a05e53ae7e",
+      "amount": 98626
+    },
+    {
+      "user": "0xf745891b5AE0Cc3F8D0b8b37BdaD9E5dAB6814AE",
+      "amount": 9148
+    },
+    {
+      "user": "0xf790b80B562EaB0c17181c637a4738a17e339255",
+      "amount": 263403
+    },
+    {
+      "user": "0xf7cFD642c7b99d88d56Cad02ce1c8656Eb267B8C",
+      "amount": 398
+    },
+    {
+      "user": "0xf7e9CAaaEEb6cC9657E1Dd490F044114AecC31B2",
+      "amount": 1096870
+    },
+    {
+      "user": "0xf83A0d6f4d39cc413825b343a410eee24C75627c",
+      "amount": 29889
+    },
+    {
+      "user": "0xf866E40260050414a3b2A91c2CAFd62ca2CE9B0e",
+      "amount": 15484
+    },
+    {
+      "user": "0xf8a8BD5284974076d1F02D63bffA4ceBC581e167",
+      "amount": 1029301
+    },
+    {
+      "user": "0xF8d7EAa40aD995EeF39736D2439Fa2C1Ea40081B",
+      "amount": 8304
+    },
+    {
+      "user": "0xF932Fe5FBE9034F0EBA01367c9A9143C9eb3BE4C",
+      "amount": 4140
+    },
+    {
+      "user": "0xF9Ce182b0FBe597773AB9BB5159B7479047de8fe",
+      "amount": 1208603
+    },
+    {
+      "user": "0xf9D7db70fbf15b1f9D7cF73b927E02A51ae491DF",
+      "amount": 0
+    },
+    {
+      "user": "0xFa6f086B4702a8C509B4710fE31B9A5B56C19D1A",
+      "amount": 0
+    },
+    {
+      "user": "0xFab1F75103c7AfA1E8Fd4acf874dC8c4D002d0B9",
+      "amount": 468718
+    },
+    {
+      "user": "0xfAf6f09DF88E79fa2A92B18C676314b1e47A4468",
+      "amount": 23631
+    },
+    {
+      "user": "0xfC4B2a62A06cb2E1C6A743E9aE327Bb16977E4c1",
+      "amount": 536831
+    },
+    {
+      "user": "0xFc561e09dF81aDecF0e25cCF654B2702e1f8f04a",
+      "amount": 95
+    },
+    {
+      "user": "0xfCbf1f165eB36aCa330E28DdAb065DCe5FBb3adB",
+      "amount": 105433
+    },
+    {
+      "user": "0xFCf2F5B35De0d565aaF79CCef92dC3b4C867C79d",
+      "amount": 586353
+    },
+    {
+      "user": "0xfd14a41E18CaedAe2Fb72449d479babA1665f593",
+      "amount": 145
+    },
+    {
+      "user": "0xfd5d999719a3e98B7099493c2a2497F3Ef07CF67",
+      "amount": 783330
+    },
+    {
+      "user": "0xfD8bD978f198503a0BA9C5D7f7586E23fC4A4b40",
+      "amount": 2238782
+    },
+    {
+      "user": "0xFdbBfB0Fe2986672af97Eca0e797D76A0bbF35c9",
+      "amount": 504003
+    },
+    {
+      "user": "0xfdCa38fc56BBa4e57A203D1E89bF23BaB3f7B6b3",
+      "amount": 225583
+    },
+    {
+      "user": "0xfDDFFf2C1A376CcEc92D9EFC11ec81BbD73BF7f0",
+      "amount": 11972
+    },
+    {
+      "user": "0xfdF73C771d0A3EB0fF67c4c52844428884eA1850",
+      "amount": 363
+    },
+    {
+      "user": "0xfe21Caf7d01fa62747F026E8e2E52CAE8Bfcb1c9",
+      "amount": 132731
+    },
+    {
+      "user": "0xFe2b32f579015503994eF697ce8e52c5d150BD8b",
+      "amount": 21715
+    },
+    {
+      "user": "0xFe438AAFFf2c0935cF0E4d02610d40fE504520d6",
+      "amount": 64167
+    },
+    {
+      "user": "0xfea257550b79d7d55e3CA67bc5886b3996E5DD2A",
+      "amount": 459942
+    },
+    {
+      "user": "0xFF129D231eD432Fd8d8C0Eb173C1FB984F4E7274",
+      "amount": 0
+    },
+    {
+      "user": "0xFFb985759D117dBEE091bd307aC98192C1C2f142",
+      "amount": 219519
+    },
+    {
+      "user": "0xFFcFA5F7b994AEB4c6931e0A6Cd95d8984e038CE",
+      "amount": 1080929
+    },
+    {
+      "user": "0xFffdED86A61ABe01Fa32521628f60Be4833BB208",
+      "amount": 0
+    }
+  ]
+}

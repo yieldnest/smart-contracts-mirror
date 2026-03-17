@@ -1,0 +1,458 @@
+// SPDX-License-Identifier: BSD Clause-3
+pragma solidity ^0.8.24;
+
+import {Test} from "lib/forge-std/src/Test.sol";
+import {Vault} from "src/Vault.sol";
+import {TransparentUpgradeableProxy, IERC20, Math} from "src/Common.sol";
+import {MainnetContracts as MC} from "script/Contracts.sol";
+import {Etches} from "test/unit/helpers/Etches.sol";
+import {WETH9} from "test/unit/mocks/MockWETH.sol";
+import {SetupVault} from "test/unit/helpers/SetupVault.sol";
+import {MainnetActors} from "script/Actors.sol";
+import {FeeHooks} from "src/hooks/FeeHooks.sol";
+import {IHooks} from "src/interface/IHooks.sol";
+import {AssertUtils} from "test/utils/AssertUtils.sol";
+import {console} from "lib/forge-std/src/console.sol";
+import {IFeeHooks} from "src/interface/IFeeHooks.sol";
+import {MockProvider} from "test/unit/mocks/MockProvider.sol";
+import {IVault} from "src/interface/IVault.sol";
+
+contract VaultWithdrawUnitTest is Test, MainnetActors, Etches, AssertUtils {
+    using Math for uint256;
+
+    Vault public vaultImplementation;
+    TransparentUpgradeableProxy public vaultProxy;
+
+    Vault public vault;
+    WETH9 public weth;
+
+    address public alice = address(0x1);
+    address public bob = address(0x2);
+    address public chad = address(0x3);
+
+    uint256 public constant INITIAL_BALANCE = 100_000 ether;
+
+    function setUp() public {
+        SetupVault setupVault = new SetupVault();
+        (vault, weth) = setupVault.setup();
+
+        // Give Alice some tokens
+        deal(alice, INITIAL_BALANCE);
+        weth.deposit{value: INITIAL_BALANCE}();
+        weth.transfer(alice, INITIAL_BALANCE);
+
+        // Approve vault to spend Alice's tokens
+        vm.prank(alice);
+        weth.approve(address(vault), type(uint256).max);
+    }
+
+    function allocateToBuffer(uint256 amount) public {
+        address[] memory targets = new address[](2);
+        targets[0] = MC.WETH;
+        targets[1] = MC.BUFFER;
+
+        uint256[] memory values = new uint256[](2);
+        values[0] = 0;
+        values[1] = 0;
+
+        bytes[] memory data = new bytes[](2);
+        data[0] = abi.encodeWithSignature("approve(address,uint256)", vault.buffer(), amount);
+        data[1] = abi.encodeWithSignature("deposit(uint256,address)", amount, address(vault));
+
+        vm.prank(PROCESSOR);
+        vault.processor(targets, values, data);
+    }
+
+    function test_Vault_previewWithdraw(uint256 assets, bool alwaysComputeTotalAssets) external {
+        if (assets < 2) return;
+        if (assets > 100_000 ether) return;
+
+        vm.prank(ASSET_MANAGER);
+        vault.setAlwaysComputeTotalAssets(alwaysComputeTotalAssets);
+
+        uint256 amount = vault.previewWithdraw(assets);
+        assertEq(amount, assets);
+    }
+
+    function test_Vault_previewWithdraw_zeroAssets() public view {
+        assertEq(vault.previewWithdraw(0), 0, "previewWithdraw(0) should return 0");
+    }
+
+    function test_Vault_previewWithdraw_withFee(uint256 depositAmount, uint256 withdrawAmount) public {
+        depositAmount = bound(depositAmount, 1 ether, 1000 ether);
+        withdrawAmount = bound(withdrawAmount, 1 ether, depositAmount);
+
+        vm.startPrank(FEE_MANAGER);
+        vault.setBaseWithdrawalFee(10000); // 1% fee
+        vm.stopPrank();
+
+        vm.prank(alice);
+        vault.deposit(depositAmount, alice);
+
+        uint256 previewShares = vault.previewWithdraw(withdrawAmount);
+        // With fee, should require more shares
+        assertGe(previewShares, withdrawAmount, "previewWithdraw should account for fee");
+    }
+
+    function test_Vault_withdraw_success(uint256 assets) external {
+        if (assets < 2) return;
+        if (assets > 100_000 ether) return;
+
+        vm.prank(alice);
+        uint256 depositShares = vault.deposit(assets, alice);
+
+        vm.prank(ADMIN);
+        allocateToBuffer(assets);
+        uint256 previewAmount = vault.previewWithdraw(assets);
+
+        uint256 aliceBalanceBefore = vault.balanceOf(alice);
+        uint256 totalAssetsBefore = vault.totalAssets();
+
+        vm.prank(alice);
+        uint256 shares = vault.withdraw(assets, alice, alice);
+        uint256 totalAssetsAfter = vault.totalAssets();
+        uint256 aliceBalanceAfter = vault.balanceOf(alice);
+
+        assertEq(aliceBalanceBefore, aliceBalanceAfter + shares, "Alice's balance should be less the shares withdrawn");
+        assertEq(previewAmount, shares, "Preview withdraw amount not preview amount");
+        assertEq(depositShares, shares, "Deposit shares not match with withdraw shares");
+        assertLt(totalAssetsAfter, totalAssetsBefore, "Total assets should be less after withdraw");
+        assertEq(
+            totalAssetsBefore,
+            totalAssetsAfter + assets,
+            "Total assets should be total assets after plus assets withdrawn"
+        );
+    }
+
+    function test_Vault_withdraw_PerformanceFeeSuccess(uint256 deposit1, uint256 yieldAmount1, uint256 yieldAmount2)
+        external
+    {
+        deposit1 = bound(deposit1, 1 ether, 100_000 ether);
+        yieldAmount1 = bound(yieldAmount1, 1 ether, 5000 ether);
+        yieldAmount2 = bound(yieldAmount2, 1 ether, 5000 ether);
+
+        deal(MC.WETH, alice, deposit1 + yieldAmount1 + yieldAmount2);
+
+        vm.startPrank(alice);
+        uint256 depositShares1 = vault.deposit(deposit1, alice);
+        vault.processAccounting();
+        IERC20(MC.WETH).transfer(address(vault), yieldAmount1);
+
+        uint256 performanceFee = IFeeHooks(address(vault.hooks())).performanceFee();
+        uint256 performanceFeeAmount = (yieldAmount1 * performanceFee) / 1 ether;
+        uint256 vaultTotalSupplyBefore = vault.totalSupply();
+        vault.processAccounting();
+        uint256 vaultTotalSupplyAfter = vault.totalSupply();
+        uint256 performanceFeeShares = vaultTotalSupplyAfter - vaultTotalSupplyBefore;
+        assertEqThreshold(
+            vaultTotalSupplyAfter - vaultTotalSupplyBefore,
+            performanceFeeShares,
+            1e12,
+            "vault total supply should be equal to vault total supply before plus performance fee shares"
+        );
+        vm.stopPrank();
+
+        vm.prank(ADMIN);
+        allocateToBuffer(deposit1 + yieldAmount1);
+
+        vaultTotalSupplyBefore = vault.totalSupply();
+        vault.processAccounting();
+        vaultTotalSupplyAfter = vault.totalSupply();
+        assertEqThreshold(
+            vaultTotalSupplyAfter,
+            vaultTotalSupplyBefore,
+            1e12,
+            "vault total supply should not change because yield is not accrued"
+        );
+
+        vm.prank(alice);
+        vault.redeem(depositShares1, alice, alice);
+        vaultTotalSupplyBefore = vault.totalSupply();
+        vault.processAccounting();
+        vaultTotalSupplyAfter = vault.totalSupply();
+        assertEqThreshold(
+            vaultTotalSupplyAfter,
+            vaultTotalSupplyBefore,
+            1e12,
+            "vault total supply should not change because yield is not accrued"
+        );
+
+        vm.startPrank(alice);
+        IERC20(MC.WETH).transfer(address(vault), yieldAmount2);
+
+        performanceFee = IFeeHooks(address(vault.hooks())).performanceFee();
+        performanceFeeAmount = (yieldAmount2 * performanceFee) / 1 ether;
+        vaultTotalSupplyBefore = vault.totalSupply();
+        vault.processAccounting();
+        vaultTotalSupplyAfter = vault.totalSupply();
+        uint256 performanceFeeShares2 = vaultTotalSupplyAfter - vaultTotalSupplyBefore;
+        assertApproxEqAbs(
+            vault.convertToAssets(performanceFeeShares2),
+            performanceFeeAmount,
+            1e6,
+            "performance fee shares should be equal to performance fee amount"
+        );
+        assertEqThreshold(
+            vaultTotalSupplyAfter - vaultTotalSupplyBefore,
+            performanceFeeShares2,
+            1e12,
+            "vault total supply should be equal to vault total supply before plus performance fee shares"
+        );
+
+        assertEqThreshold(
+            vault.balanceOf(FEE_MANAGER),
+            performanceFeeShares + performanceFeeShares2,
+            1e12,
+            "fee manager balance should be equal to performance fee shares plus performance fee shares 2"
+        );
+        vm.stopPrank();
+    }
+
+    function test_Vault_withdrawMoreThanBalance() public {
+        vm.startPrank(alice);
+        uint256 depositAmount = 100 ether;
+        vault.deposit(depositAmount, alice);
+
+        // Attempt to withdraw more than the balance
+        uint256 excessiveWithdrawAmount = depositAmount + 1 ether;
+        vm.expectRevert();
+        vault.withdraw(excessiveWithdrawAmount, alice, alice);
+    }
+
+    function test_Vault_withdraw_as_non_owner() public {
+        vm.startPrank(alice);
+        uint256 depositAmount = 100 ether;
+        uint256 sharesMinted = vault.deposit(depositAmount, alice);
+
+        // Attempt to withdraw as a non-owner
+        vm.startPrank(bob);
+        vm.expectRevert();
+        vault.withdraw(sharesMinted, bob, alice);
+    }
+
+    function test_Vault_withdrawWhilePaused() public {
+        vm.prank(PAUSER);
+        vault.pause();
+        assertEq(vault.paused(), true);
+
+        vm.prank(alice);
+        vm.expectRevert();
+        vault.withdraw(1000, alice, alice);
+    }
+
+    function test_Vault_withdrawUsingBufferBalance() public {
+        /*
+
+            This is just a simple unit test for the buffer.
+            Proper testing for the varios situations
+            are in scenario tests.
+
+        */
+        uint256 depositAmount = 100 ether;
+        IERC20 buffer = IERC20(MC.BUFFER);
+
+        vm.prank(alice);
+        vault.deposit(depositAmount, alice);
+
+        // Give bob base asset tokens
+        deal(bob, INITIAL_BALANCE);
+        weth.deposit{value: INITIAL_BALANCE}();
+        weth.transfer(bob, INITIAL_BALANCE);
+
+        vm.startPrank(bob);
+        weth.approve(address(vault), type(uint256).max);
+
+        vault.deposit(depositAmount, bob);
+        vm.stopPrank();
+
+        // Vault balance should be 200 ether;
+
+        assertEq(weth.balanceOf(address(vault)), 200 ether);
+
+        // this is a processAllocation call to transfer the assets
+        // bob and alice deposited to the buffer strategy
+        allocateToBuffer(150 ether);
+
+        // weth balance of buffer should be 150 ether
+        assertEq(buffer.balanceOf(address(vault)), 150 * 10 ** 18, "Buffer balance before != 150 ether");
+
+        // weth balance of vault should be 50 ether
+        assertEq(weth.balanceOf(address(vault)), 50 ether, "Wrong weth balance in vault");
+
+        // Now processing with test:
+        uint256 aliceWethBalanceBefore = weth.balanceOf(alice);
+
+        vm.prank(alice);
+        vault.withdraw(100 ether, alice, alice);
+
+        assertEq(weth.balanceOf(alice), aliceWethBalanceBefore + 100 ether, "Alice's weth balance is not 100 ether");
+        assertEq(buffer.balanceOf(address(vault)), 50 ether, "Buffer balance is not 100 ether");
+        assertEq(weth.balanceOf(address(vault)), 50 ether, "Buffer balance is not 100 ether");
+        // Check that the buffer balance is now zero
+    }
+
+    function test_Vault_maxWithdraw() public view {
+        uint256 maxWithdraw = vault.maxWithdraw(alice);
+        assertEq(maxWithdraw, 0, "Max withdraw does not match");
+    }
+
+    function test_Vault_maxWithdraw_whenBufferIsZero() public {
+        // Create a new vault without buffer
+        Vault implementation = new Vault();
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(implementation), address(this), "");
+        Vault newVault = Vault(payable(address(proxy)));
+        newVault.initialize(address(this), "Test", "TST", 18, 0, false, false, 0);
+
+        assertEq(newVault.maxWithdraw(alice), 0, "maxWithdraw should be 0 when buffer is zero");
+    }
+
+    function test_Vault_maxWithdraw_whenPaused() public {
+        vm.prank(PAUSER);
+        vault.pause();
+
+        assertEq(vault.maxWithdraw(alice), 0, "maxWithdraw should be 0 when paused");
+    }
+
+    function test_Vault_maxWithdraw_withNoShares() public view {
+        assertEq(vault.maxWithdraw(bob), 0, "maxWithdraw should be 0 for user with no shares");
+    }
+
+    event Log(uint256, string);
+
+    function test_Vault_maxWithdraw_afterDeposit() public {
+        uint256 depositAmount = 1212121212;
+        // if (depositAmount < 10) return;
+        // if (depositAmount > 99_000) return;
+
+        // Simulate a deposit
+        vm.prank(alice);
+        vault.deposit(depositAmount, alice);
+
+        // Process allocation to send assets to the buffer
+        allocateToBuffer(depositAmount);
+
+        // Test maxWithdraw after deposit
+        uint256 maxWithdrawAfterDeposit = vault.maxWithdraw(alice);
+        assertEq(maxWithdrawAfterDeposit, depositAmount, "Max withdraw after deposit does not match");
+    }
+
+    function test_Vault_maxWithdrawWhenPaused() public {
+        vm.prank(PAUSER);
+        vault.pause();
+        assertEq(vault.paused(), true);
+
+        uint256 maxWithdraw = vault.maxWithdraw(alice);
+        assertEq(maxWithdraw, 0, "Max withdraw is not zero when paused");
+    }
+
+    function test_Vault_withdraw_to_different_owner() public {
+        uint256 depositAmount = 1000;
+        vm.startPrank(alice);
+        weth.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, bob);
+        vm.stopPrank();
+
+        // Process allocation to send assets to the buffer
+        allocateToBuffer(depositAmount);
+
+        // Test withdrawal by non-owner (Bob) to Alice
+        // vault.approve(alice, depositAmount);
+        vm.prank(alice);
+        vault.approve(alice, depositAmount);
+        vm.expectRevert();
+        vault.withdraw(depositAmount, bob, bob);
+    }
+
+    // Security test for zero buffer scenario
+    function test_Vault_withdraw_revertsWhenBufferNotSet() public {
+        // Create a new vault without setting buffer
+        Vault implementation = new Vault();
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(implementation), address(this), "");
+        Vault newVault = Vault(payable(address(proxy)));
+        newVault.initialize(address(this), "Test Vault", "TV", 18, 0, false, false, 0);
+
+        // Grant roles
+        newVault.grantRole(newVault.ASSET_MANAGER_ROLE(), ASSET_MANAGER);
+        newVault.grantRole(newVault.PROVIDER_MANAGER_ROLE(), PROVIDER_MANAGER);
+        newVault.grantRole(newVault.BUFFER_MANAGER_ROLE(), BUFFER_MANAGER);
+        newVault.grantRole(newVault.UNPAUSER_ROLE(), UNPAUSER);
+
+        // Setup vault
+        vm.startPrank(PROVIDER_MANAGER);
+        newVault.setProvider(MC.PROVIDER);
+        vm.stopPrank();
+
+        vm.startPrank(ASSET_MANAGER);
+        newVault.addAsset(MC.WETH, true);
+        vm.stopPrank();
+
+        // Unpause vault (requires provider but not buffer)
+        vm.prank(UNPAUSER);
+        newVault.unpause();
+
+        // Deposit some assets
+        deal(MC.WETH, alice, 1000 ether);
+        vm.startPrank(alice);
+        IERC20(MC.WETH).approve(address(newVault), type(uint256).max);
+        newVault.deposit(100 ether, alice);
+        vm.stopPrank();
+
+        // Attempt withdrawal should revert due to unset buffer
+        vm.prank(alice);
+        vm.expectRevert();
+        newVault.withdraw(10 ether, alice, alice);
+    }
+
+    function test_Vault_maxWithdraw_returnsZeroWhenBufferIsZeroAddress() public {
+        // Deploy a fresh vault
+        Vault implementation = new Vault();
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(implementation), address(this), "");
+        Vault newVault = Vault(payable(address(proxy)));
+        newVault.initialize(address(this), "Test Vault", "TV", 18, 0, false, false, 0);
+
+        // Grant relevant roles
+        newVault.grantRole(newVault.ASSET_MANAGER_ROLE(), ASSET_MANAGER);
+        newVault.grantRole(newVault.BUFFER_MANAGER_ROLE(), BUFFER_MANAGER);
+
+        // Add an asset
+        vm.startPrank(ASSET_MANAGER);
+        newVault.addAsset(address(weth), true);
+        vm.stopPrank();
+
+        {
+            // Create a MockProvider instance and set a rate for WETH
+            MockProvider mockProvider = new MockProvider();
+            // Set an example rate for WETH, e.g., 1:1 (1e18 = 1)
+            mockProvider.setRate(address(weth), 1e18);
+
+            newVault.grantRole(newVault.PROVIDER_MANAGER_ROLE(), PROVIDER_MANAGER);
+
+            // Set the MockProvider as the provider in the vault
+            vm.startPrank(PROVIDER_MANAGER);
+            newVault.setProvider(address(mockProvider));
+            vm.stopPrank();
+        }
+
+        newVault.grantRole(newVault.UNPAUSER_ROLE(), UNPAUSER);
+        vm.prank(UNPAUSER);
+        newVault.unpause();
+
+        deal(address(weth), alice, 1000 ether);
+        vm.startPrank(alice);
+        weth.approve(address(newVault), type(uint256).max);
+        newVault.deposit(100 ether, alice);
+        vm.stopPrank();
+
+        assertEq(newVault.buffer(), address(0));
+
+        // maxWithdraw should return zero when buffer is address(0)
+        uint256 maxWithdrawValue = newVault.maxWithdraw(alice);
+        assertEq(maxWithdrawValue, 0, "maxWithdraw should return 0 when buffer is address(0)");
+
+        // Attempt to withdraw and expect revert because buffer is address(0)
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IVault.ExceededMaxWithdraw.selector, alice, 1 ether, 0));
+        newVault.withdraw(1 ether, alice, alice);
+        vm.stopPrank();
+    }
+}
