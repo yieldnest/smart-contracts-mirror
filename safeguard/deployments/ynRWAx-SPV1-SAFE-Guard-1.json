@@ -1,0 +1,8 @@
+{
+  "admin": "0xfcad670592a3b24869C0b51a6c6FDED4F95D6975",
+  "name": "ynRWAx-SPV1-SAFE-Guard",
+  "safeguard-implementation": "0x15121206a14a97EdD1206386F410634CAcA5c52a",
+  "safeguard-proxy": "0x81e3E4224D9a2d66D9edbA6d4781d475AA65F01e",
+  "safeguard-proxyAdmin": "0xf76E4F2a31Dd71D350FA87a213aBC7f25c0CE8d4",
+  "timelock": "0xF60614557b58692091Cc72896C49b3997c1E6Da6"
+}

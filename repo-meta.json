@@ -1,0 +1,54 @@
+{
+  "description": "Tracks the source branch and commit for each flat repo copy",
+  "generated_at": "2026-03-17",
+  "repos": {
+    "yieldnest-vault": {
+      "url": "https://github.com/yieldnest/yieldnest-vault.git",
+      "branch": "eth-max-vault-release-candidate",
+      "commit": "89854dfedeb15ed06cebceee8935ba3494786274",
+      "commit_message": "Merge pull request #262 from yieldnest/fix/minor-updates"
+    },
+    "yieldnest-flex-strategy": {
+      "url": "https://github.com/yieldnest/yieldnest-flex-strategy.git",
+      "branch": "release-candidate",
+      "commit": "8c53830c0162dc7f5bd5bfeb80c14480053bcddc",
+      "commit_message": "Merge pull request #23 from yieldnest/fix/rewards-sweeper-verifier"
+    },
+    "yieldnest-erc4626-wrapper-strategy": {
+      "url": "https://github.com/yieldnest/yieldnest-erc4626-wrapper-strategy.git",
+      "branch": "release-candidate",
+      "commit": "7a5231db21d3fac1b3cff1e9f010fa9664e51930",
+      "commit_message": "Merge pull request #5 from yieldnest/test/rewards-harvest"
+    },
+    "yieldnest-vault-periphery": {
+      "url": "https://github.com/yieldnest/yieldnest-vault-periphery.git",
+      "branch": "eth-max-vault-release-candidate",
+      "commit": "f8e9cf7f265fe5c4bddf11e666994f2048009b06",
+      "commit_message": "Merge pull request #36 from yieldnest/demo/verify-contract"
+    },
+    "yieldnest-eigenlayer-lrt": {
+      "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
+      "branch": "release-candidate",
+      "commit": "31f7719e0a65f3ad1aef4e7703ab06166f23b51d",
+      "commit_message": "Merge pull request #270 from yieldnest/script/cap-delegation"
+    },
+    "yieldnest-airdrop": {
+      "url": "https://github.com/yieldnest/yieldnest-airdrop.git",
+      "branch": "dev",
+      "commit": "221599c53801d8422630256d43707759147fdd9a",
+      "commit_message": "Merge pull request #8 from yieldnest/deployment/aster-airdrop"
+    },
+    "safeguard": {
+      "url": "https://github.com/yieldnest/safeguard.git",
+      "branch": "dev",
+      "commit": "1fb2d4fc6ab66b6c551c56d76b896b519c43aa10",
+      "commit_message": "Merge pull request #6 from yieldnest/feature/safemodule-ynwsteth"
+    },
+    "wrapped-token": {
+      "url": "https://github.com/yieldnest/wrapped-token.git",
+      "branch": "main",
+      "commit": "1d19654d4913660279f50ef14079fb59508b0ab4",
+      "commit_message": "Merge pull request #2 from yieldnest/deploy/wrapped-token-implementation"
+    }
+  }
+}
