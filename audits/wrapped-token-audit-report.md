@@ -8,6 +8,7 @@
 - **Solidity Version:** ^0.8.0
 - **Framework:** Foundry (Forge)
 - **Dependencies:** OpenZeppelin Contracts, OpenZeppelin Contracts Upgradeable
+- **Additional Pipeline:** G (Forefy + Archethect) -- merged 2026-03-17 from OpenAudit findings
 
 ## Audit Scope
 
@@ -28,6 +29,7 @@ The audit covers the two source files in `src/`. Test utilities (e.g., `Governed
 | C | State Inconsistency Analysis | Storage variable coupling, mutation path completeness, masking patterns |
 | D | Pashov Multi-Vector Scan | 4 perspectives: access control, reentrancy, arithmetic, logic flow |
 | E | QuillAI Modules | Input-arithmetic-safety, external-call-safety, behavioral-state-analysis |
+| G | Forefy + Archethect | Protocol-specific 5-layer audit + SETUP-MAP-HUNT-ATTACK methodology |
 
 ## Executive Summary
 
@@ -101,7 +103,7 @@ Note: This is a breaking change for any already-deployed proxies, as it moves wh
 **Severity:** Medium
 **Confidence:** High
 **Affected Contract(s):** `WrappedToken.sol`
-**Sources:** Pipeline B, Pipeline D, Pipeline E
+**Sources:** Pipeline B, Pipeline D, Pipeline E, Pipeline G
 
 **Description:**
 
@@ -154,11 +156,13 @@ If fee-on-transfer tokens are explicitly out of scope, document this assumption 
 **Severity:** Low
 **Confidence:** High
 **Affected Contract(s):** `WrappedToken.sol`
-**Sources:** Pipeline B, Pipeline D, Pipeline E
+**Sources:** Pipeline B, Pipeline D, Pipeline E, Pipeline G
 
 **Description:**
 
 When `decimalsOffset > 0`, redeeming a number of shares less than `10^decimalsOffset` results in `convertToAssets()` returning 0 due to floor division. The shares are still burned, but the user receives zero underlying tokens.
+
+Pipeline G (Forefy Precision Errors layer, confirmed by Archethect accounting-entitlement hunt lane) provided additional analysis: this situation arises naturally because ERC-20 tokens permit transfers of arbitrary amounts. A user can receive shares via a standard `transfer()` call in any quantity, including amounts not aligned to the `10 ** decimalsOffset` granularity. For example, with `decimalsOffset = 12` (wrapping a 6-decimal token like USDC into 18 decimals), any user holding fewer than `10^12` shares will lose them entirely upon redemption. This also enables a griefing vector where an attacker sends dust share amounts to a victim's address, causing the victim's full-balance redemption to leave a remainder that must be redeemed separately at a loss.
 
 **Code Reference:**
 
@@ -182,7 +186,7 @@ function redeem(uint256 shares, address receiver, address owner) public returns 
 
 **Impact:**
 
-Users who call `redeem()` with fewer shares than `10^decimalsOffset` permanently lose those shares with no underlying tokens returned. While this is unlikely for informed users, it could affect integrating contracts or UIs that do not enforce minimum redemption amounts.
+Users who call `redeem()` with fewer shares than `10^decimalsOffset` permanently lose those shares with no underlying tokens returned. While this is unlikely for informed users, it could affect integrating contracts or UIs that do not enforce minimum redemption amounts. With `decimalsOffset = 12`, up to `999,999,999,999` shares (worth approximately 0.999999 of the underlying token) can be silently destroyed per redemption. The underlying tokens backing those burned shares become unclaimable surplus.
 
 **Recommendation:**
 
@@ -203,7 +207,7 @@ function redeem(uint256 shares, address receiver, address owner) public returns 
 **Severity:** Low
 **Confidence:** High
 **Affected Contract(s):** `WrappedToken.sol`
-**Sources:** Pipeline B, Pipeline E
+**Sources:** Pipeline B, Pipeline E, Pipeline G
 
 **Description:**
 
@@ -212,6 +216,8 @@ The `_initialize()` function only validates that `underlyingToken != address(thi
 1. `underlyingToken != address(0)` -- setting the underlying to the zero address would brick all deposit/redeem operations.
 2. `tokenDecimalsOffset` is within a safe range -- values greater than 77 cause `10 ** decimalsOffset` to overflow `uint256`, making `convertToShares()` revert for any non-zero input.
 3. `decimalsValue` is reasonable -- while any `uint8` value is technically valid, extremely high values would be misleading.
+
+Pipeline G (Archethect semantic-consistency hunt lane) provided additional detail on the `decimalsOffset` overflow: since `10 ** decimalsOffset` is computed at runtime using Solidity 0.8's checked arithmetic, any `decimalsOffset > 77` makes both `convertToShares()` and `convertToAssets()` permanently revert, bricking the contract. The practical range should be 0-18. Pipeline G (Forefy Access Control layer, confirmed by Archethect) also independently identified the zero-address validation gap, noting that `SafeERC20.safeTransferFrom(IERC20(address(0)), ...)` behavior is version-dependent and `backing()` would return unpredictable results.
 
 **Code Reference:**
 
@@ -238,7 +244,7 @@ function _initialize(
 
 **Impact:**
 
-Since `initialize()` can only be called once (due to the `initializer` modifier), an incorrect initialization is permanent and irreversible. A misconfigured `decimalsOffset > 77` would make the contract unusable, and a zero-address underlying would cause all transfers to revert.
+Since `initialize()` can only be called once (due to the `initializer` modifier), an incorrect initialization is permanent and irreversible. A misconfigured `decimalsOffset > 77` would make the contract unusable, and a zero-address underlying would cause all transfers to revert. If any underlying tokens are sent to the contract address before the issue is detected, those tokens are permanently locked.
 
 **Recommendation:**
 
@@ -256,11 +262,13 @@ require(tokenDecimalsOffset <= 77, "WrappedToken: offset too large");
 **Severity:** Low
 **Confidence:** Medium
 **Affected Contract(s):** `WrappedToken.sol`
-**Sources:** Pipeline A, Pipeline D
+**Sources:** Pipeline A, Pipeline D, Pipeline G
 
 **Description:**
 
 In `deposit()`, the external call `safeTransferFrom()` executes **before** the state-changing `_mint()` call. This violates the Checks-Effects-Interactions (CEI) pattern. If the underlying token implements ERC-777 transfer hooks (e.g., `tokensToSend` on the sender), the sender receives a callback before shares are minted.
+
+Pipeline G (Forefy Technical layer reentrancy analysis, Archethect callback-liveness hunt lane) performed additional analysis and confirmed this is not exploitable in the current contract: the callback fires on `msg.sender` (the depositor), not a third party; during the callback window no shares have been minted so re-entering `redeem()` would revert; and re-entering `deposit()` is a self-call transferring more of the caller's own tokens, which is not exploitable. Pipeline G classified this as informational, consistent with the assessment that it is a code quality concern rather than an active vulnerability.
 
 **Code Reference:**
 
@@ -306,7 +314,7 @@ Alternatively, add OpenZeppelin's `ReentrancyGuardUpgradeable` as a defense-in-d
 ### I-01: Unused `ALLOCATOR_ROLE` Constant and `AllocatorStatusChanged` Event
 
 **Affected Contract(s):** `WrappedToken.sol`
-**Sources:** Pipeline A, Pipeline D
+**Sources:** Pipeline A, Pipeline D, Pipeline G
 
 The `ALLOCATOR_ROLE` constant (line 42) and `AllocatorStatusChanged` event (line 39) are declared in `WrappedToken.sol` but never referenced within the contract itself. They are used only in the derived `GovernedWrappedToken` contract (located in `test/utils/`, outside audit scope).
 
@@ -331,12 +339,12 @@ bytes32 private constant TokenStorageLocation = 0x360894a13ba1a3210667c828492db9
 
 ## Appendix: Pipeline Cross-Reference Matrix
 
-| Finding | Pipeline A (SCV) | Pipeline B (Feynman) | Pipeline C (State) | Pipeline D (Pashov) | Pipeline E (QuillAI) |
-|---------|:-:|:-:|:-:|:-:|:-:|
-| M-01: Storage Slot Namespace | X | | X | X | |
-| M-02: Fee-on-Transfer | | X | | X | X |
-| L-01: Zero-Asset Burn | | X | | X | X |
-| L-02: Init Validation | | X | | | X |
-| L-03: Non-CEI deposit() | X | | | X | |
-| I-01: Unused ALLOCATOR_ROLE | X | | | X | |
-| I-02: Incorrect Comment | X | | X | | |
+| Finding | Pipeline A (SCV) | Pipeline B (Feynman) | Pipeline C (State) | Pipeline D (Pashov) | Pipeline E (QuillAI) | Pipeline G (Forefy+Archethect) |
+|---------|:-:|:-:|:-:|:-:|:-:|:-:|
+| M-01: Storage Slot Namespace | X | | X | X | | |
+| M-02: Fee-on-Transfer | | X | | X | X | X |
+| L-01: Zero-Asset Burn | | X | | X | X | X |
+| L-02: Init Validation | | X | | | X | X |
+| L-03: Non-CEI deposit() | X | | | X | | X |
+| I-01: Unused ALLOCATOR_ROLE | X | | | X | | X |
+| I-02: Incorrect Comment | X | | X | | | |

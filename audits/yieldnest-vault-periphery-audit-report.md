@@ -6,7 +6,7 @@
 - **Branch:** eth-max-vault-release-candidate
 - **Date:** 2026-03-17
 - **Solidity Version:** ^0.8.24
-- **Auditor:** Multi-Pipeline Automated Security Audit
+- **Auditor:** Multi-Pipeline Automated Security Audit (incl. Forefy + Archethect)
 
 ## Audit Scope
 
@@ -29,13 +29,14 @@
 | D | Pashov Multi-Vector Scan | 2 |
 | E | QuillAI Modules | 1 |
 | F | Token Integration Analysis | 1 |
-| **Total unique findings** | | **8** |
+| G | Forefy + Archethect | Protocol-specific 5-layer audit + SETUP-MAP-HUNT-ATTACK methodology |
+| **Total unique findings** | | **17** |
 
 ## Executive Summary
 
 The yieldnest-vault-periphery repository implements three primary contracts: a `VaultManager` for administrative operations with role-based access control, a `MetaHooks` contract for composing and dispatching multiple hook contracts in sequence, and a `ProcessAccountingGuardHook` that validates total asset and supply changes during the vault's `processAccounting` cycle.
 
-The codebase demonstrates competent Solidity engineering with appropriate use of immutables, access control, and defensive checks. However, the audit identified **8 findings**: **1 Medium**, **4 Low**, and **3 Informational**. The most significant finding is a missing array length validation in `VaultManager.addAssets()` that can cause an out-of-bounds array access revert, potentially creating a denial-of-service condition for the module manager role. Other findings involve naming convention violations, missing zero-address checks, and potential DoS vectors through hook interactions.
+The codebase demonstrates competent Solidity engineering with appropriate use of immutables, access control, and defensive checks. However, the audit identified **17 findings**: **3 Medium**, **10 Low**, and **4 Informational**. The most significant finding is a missing array length validation in `VaultManager.addAssets()` that can cause an out-of-bounds array access revert, potentially creating a denial-of-service condition for the module manager role. Additional medium findings include missing upper bound validation on guard hook configuration parameters that could allow the guard to be silently disabled, and public visibility on internal guard check functions that expose threshold probing to potential attackers. Other findings involve naming convention violations, missing zero-address checks, unrestricted share minting authority, and potential DoS vectors through hook interactions.
 
 No critical or high-severity vulnerabilities were identified. The trust assumptions between MetaHooks and registered hooks are appropriate given the admin-gated hook registration model.
 
@@ -45,12 +46,21 @@ No critical or high-severity vulnerabilities were identified. The trust assumpti
 |----|----------|-------|---------|------------|
 | VPH-01 | Medium | Missing array length validation in `addAssets()` causes silent revert | A, B, D | High |
 | VPH-02 | Low | `ProcessAccountingGuardHook` guard bypass when `totalSupplyBeforeAccounting` is zero | B, E | Medium |
-| VPH-03 | Low | Internal-naming convention on public functions in `VaultManager` | B, D | High |
-| VPH-04 | Low | `ProcessAccountingGuardHook` owner is immutable with no transfer mechanism | C, D | High |
+| VPH-03 | Low | Internal-naming convention on public functions in `VaultManager` | B, D, G | High |
+| VPH-04 | Low | `ProcessAccountingGuardHook` owner is immutable with no transfer mechanism | C, D, G | High |
 | VPH-05 | Low | Malicious or reverting hook can DoS all vault operations via MetaHooks | A, E | Medium |
-| VPH-06 | Informational | TStore library is unused in the current source scope | C | High |
-| VPH-07 | Informational | `VaultManager.setProvider()` assumes `processAccounting()` was called prior | B, F | Medium |
+| VPH-06 | Informational | TStore library is unused in the current source scope | C, G | High |
+| VPH-07 | Informational | `VaultManager.setProvider()` assumes `processAccounting()` was called prior | B, F, G | Medium |
 | VPH-08 | Informational | `ProcessAccountingGuardHook` reads live `totalSupply()` instead of using params value | B, F | Medium |
+| VPH-09 | Medium | No upper bound validation on `ProcessAccountingGuardHook` configuration parameters allows guard to be effectively disabled | G | High |
+| VPH-10 | Medium | `ProcessAccountingGuardHook.checkTotalAssetsChange` and `checkTotalSupplyChange` are `public` allowing external threshold probing | G | High |
+| VPH-11 | Low | `MetaHooks.setHooks` uses O(n^2) duplicate check that becomes expensive for maximum hook count | G | High |
+| VPH-12 | Low | `MetaHooks.mintShares` provides unrestricted share minting capability to any registered hook | G | Medium |
+| VPH-13 | Low | `ProcessAccountingGuardHook.checkTotalSupplyIncreaseGivenPerformanceFee` uses post-mint values for share conversion, creating a less strict bound | G | Medium |
+| VPH-14 | Low | `ProcessAccountingGuardHook` does not verify constructor parameter consistency | G | High |
+| VPH-15 | Low | `VaultManager` constructor does not validate that the vault address is non-zero | G | High |
+| VPH-16 | Low | `VaultManager._isVaultAsset` uses an unreliable index-based asset verification approach | G | Medium |
+| VPH-17 | Informational | `MetaHooks.setConfig` always reverts, preventing standard IHooks configuration flow | G | High |
 
 ## Detailed Findings
 
@@ -162,7 +172,7 @@ function checkTotalSupplyChange(AfterProcessAccountingParams memory params) publ
 **Confidence:** High
 **Affected Contract:** `VaultManager.sol`
 **Functions:** `_isVaultAsset()`, `_erc4626AssetMatchesVaultAsset()`
-**Sources:** Pipeline B (Feynman), Pipeline D (Pashov)
+**Sources:** Pipeline B (Feynman), Pipeline D (Pashov), Pipeline G (Forefy + Archethect)
 
 **Description:**
 
@@ -199,7 +209,7 @@ Either rename the functions to remove the underscore prefix (e.g., `isVaultAsset
 **Confidence:** High
 **Affected Contract:** `ProcessAccountingGuardHook.sol`
 **Storage Variable:** `owner`
-**Sources:** Pipeline C (State Inconsistency), Pipeline D (Pashov)
+**Sources:** Pipeline C (State Inconsistency), Pipeline D (Pashov), Pipeline G (Forefy + Archethect)
 
 **Description:**
 
@@ -273,7 +283,7 @@ This is somewhat inherent to the guard/hook design pattern (hooks are *meant* to
 **Severity:** Informational
 **Confidence:** High
 **Affected Contract:** `TStore.sol`
-**Sources:** Pipeline C (State Inconsistency)
+**Sources:** Pipeline C (State Inconsistency), Pipeline G (Forefy + Archethect)
 
 **Description:**
 
@@ -310,7 +320,7 @@ Remove the file if unused, or document its intended future use.
 **Confidence:** Medium
 **Affected Contract:** `VaultManager.sol`
 **Functions:** `setProvider()`, `addAssets()`, `deleteAsset()`
-**Sources:** Pipeline B (Feynman), Pipeline F (Token Integration)
+**Sources:** Pipeline B (Feynman), Pipeline F (Token Integration), Pipeline G (Forefy + Archethect)
 
 **Description:**
 
@@ -387,6 +397,421 @@ No direct security impact if hooks are ordered correctly. However, if the guard 
 **Recommendation:**
 
 Document this behavior explicitly in the contract's NatSpec. Consider adding a comment in the code explaining why the live read is used instead of the params value, to prevent future maintainers from "fixing" it to use params.
+
+---
+
+### VPH-09: No upper bound validation on `ProcessAccountingGuardHook` configuration parameters allows guard to be effectively disabled
+
+**Severity:** Medium
+**Confidence:** High
+**Affected Contract:** `ProcessAccountingGuardHook.sol`
+**Functions:** `setMaxTotalAssetsDecreaseRatio()`, `setMaxTotalAssetsIncreaseRatio()`, `setMaxTotalSupplyIncreaseRatio()`, `setExpectedPerformanceFee()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The four setter functions in `ProcessAccountingGuardHook` accept any `uint256` value without bounds validation:
+- `setMaxTotalAssetsDecreaseRatio` (line 102)
+- `setMaxTotalAssetsIncreaseRatio` (line 112)
+- `setMaxTotalSupplyIncreaseRatio` (line 122)
+- `setExpectedPerformanceFee` (line 132)
+
+Since `RATIO_DENOMINATOR = 1e18` (representing 100%), setting any ratio parameter to a value >= 1e18 effectively disables that specific guard check. Setting `expectedPerformanceFee` to `FEE_DENOMINATOR` (1e18 = 100%) would allow the minting of shares equal to the entire base asset increase. There are no `require` statements or range checks to prevent this.
+
+While these functions are owner-restricted, the lack of bounds allows honest configuration mistakes to silently disable safety guards. Under the Forefy conservative severity framework, this is a config interaction vector where individually-valid parameter changes can combine to nullify the hook's entire purpose.
+
+**Code Reference:**
+
+```solidity
+// src/hooks/ProcessAccountingGuardHook.sol, lines 102-136
+function setMaxTotalAssetsDecreaseRatio(uint256 _maxTotalAssetsDecreaseRatio) external onlyOwner {
+    maxTotalAssetsDecreaseRatio = _maxTotalAssetsDecreaseRatio;
+    emit MaxTotalAssetsDecreaseRatioSet(_maxTotalAssetsDecreaseRatio);
+}
+
+function setMaxTotalAssetsIncreaseRatio(uint256 _maxTotalAssetsIncreaseRatio) external onlyOwner {
+    maxTotalAssetsIncreaseRatio = _maxTotalAssetsIncreaseRatio;
+    emit MaxTotalAssetsIncreaseRatioSet(_maxTotalAssetsIncreaseRatio);
+}
+
+function setMaxTotalSupplyIncreaseRatio(uint256 _maxTotalSupplyIncreaseRatio) external onlyOwner {
+    maxTotalSupplyIncreaseRatio = _maxTotalSupplyIncreaseRatio;
+    emit MaxTotalSupplyIncreaseRatioSet(_maxTotalSupplyIncreaseRatio);
+}
+
+function setExpectedPerformanceFee(uint256 _expectedPerformanceFee) external onlyOwner {
+    expectedPerformanceFee = _expectedPerformanceFee;
+    emit ExpectedPerformanceFeeSet(_expectedPerformanceFee);
+}
+```
+
+**Impact:**
+
+If ratios are set too high (even by honest mistake), the `ProcessAccountingGuardHook` becomes a no-op, silently failing to protect the vault from anomalous `processAccounting` fluctuations. An oracle manipulation or third-party protocol failure could go unchecked.
+
+**Recommendation:**
+
+Add upper bound constants and validate in each setter:
+
+```solidity
+uint256 public constant MAX_RATIO = 0.5e18; // 50% max change
+uint256 public constant MAX_FEE = 0.5e18;   // 50% max fee
+
+function setMaxTotalAssetsDecreaseRatio(uint256 _ratio) external onlyOwner {
+    require(_ratio <= MAX_RATIO, "ratio too high");
+    ...
+}
+```
+
+---
+
+### VPH-10: `ProcessAccountingGuardHook.checkTotalAssetsChange` and `checkTotalSupplyChange` are `public` allowing external threshold probing
+
+**Severity:** Medium
+**Confidence:** High
+**Affected Contract:** `ProcessAccountingGuardHook.sol`
+**Functions:** `checkTotalAssetsChange()`, `checkTotalSupplyChange()`, `checkTotalSupplyIncreaseRatio()`, `checkTotalSupplyIncreaseGivenPerformanceFee()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `afterProcessAccounting` function (line 161) is correctly protected by the `onlyVault` modifier. However, the two functions it delegates to -- `checkTotalAssetsChange` (line 178) and `checkTotalSupplyChange` (line 207) -- are both declared `public view`.
+
+While these are view functions that do not modify state, they expose internal validation logic to arbitrary callers. More critically, `checkTotalSupplyChange` reads live state from the vault (`VAULT.totalSupply()` at line 208) and compares it against the `params` argument. An external caller can pass arbitrary `params` to probe the guard's thresholds and determine the exact boundaries that would trigger a revert. This provides an attacker preparing an oracle manipulation attack with precise knowledge of the maximum manipulation they can perform without triggering the guard.
+
+Additionally, `checkTotalSupplyIncreaseRatio` (line 232) and `checkTotalSupplyIncreaseGivenPerformanceFee` (line 252) are also `public view`, providing the same information leakage.
+
+**Code Reference:**
+
+```solidity
+// src/hooks/ProcessAccountingGuardHook.sol, lines 178, 207
+function checkTotalAssetsChange(AfterProcessAccountingParams memory params) public view {
+    // ...
+}
+
+function checkTotalSupplyChange(AfterProcessAccountingParams memory params) public view {
+    uint256 totalSupplyAfterAccounting = VAULT.totalSupply();
+    // ...
+}
+```
+
+**Impact:**
+
+An attacker can call these functions off-chain to determine the exact threshold at which `processAccounting` would be blocked. This allows them to calibrate a manipulation to stay just below the guard's limits. While all on-chain state is technically public, exposing the guard's decision logic as callable functions makes it trivially easy to probe.
+
+**Recommendation:**
+
+Change visibility of internal guard checks from `public` to `internal`:
+
+```solidity
+function checkTotalAssetsChange(...) internal view { ... }
+function checkTotalSupplyChange(...) internal view { ... }
+function checkTotalSupplyIncreaseRatio(...) internal view { ... }
+function checkTotalSupplyIncreaseGivenPerformanceFee(...) internal view { ... }
+```
+
+---
+
+### VPH-11: `MetaHooks.setHooks` uses O(n^2) duplicate check that becomes expensive for maximum hook count
+
+**Severity:** Low
+**Confidence:** High
+**Affected Contract:** `MetaHooks.sol`
+**Function:** `setHooks()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `setHooks` function (line 121) checks for duplicates in the input `hooks_` array using a nested loop (lines 128-132):
+
+```solidity
+for (uint256 i = 0; i < hooks_.length; i++) {
+    for (uint256 j = i + 1; j < hooks_.length; j++) {
+        if (hooks_[i] == hooks_[j]) revert DuplicateInInput(hooks_[i]);
+    }
+}
+```
+
+With a maximum of 16 hooks (enforced at line 125), this produces up to 120 comparisons (16 * 15 / 2). While 16 is a bounded maximum, the quadratic behavior combined with the subsequent clearing loop (lines 135-138), deletion (line 141), and re-population loop (lines 144-148) means that calling `setHooks` with 16 hooks performs significant gas work.
+
+This is mitigated by the fact that `setHooks` is restricted to `HOOK_MANAGER_ROLE` and 16 is a small constant.
+
+**Impact:**
+
+Low. The function is admin-only and the maximum is bounded at 16. Gas cost is elevated but the operation is infrequent.
+
+**Recommendation:**
+
+Consider using a mapping-based duplicate check for O(n) complexity:
+
+```solidity
+for (uint256 i = 0; i < hooks_.length; i++) {
+    if (hookData[hooks_[i]].active) revert DuplicateInInput(hooks_[i]);
+    // Mark as active temporarily for duplicate detection
+    hookData[hooks_[i]].active = true;
+}
+// Then clear and re-set properly
+```
+
+Note: This requires care around the existing `hookData` clearing that precedes it.
+
+---
+
+### VPH-12: `MetaHooks.mintShares` provides unrestricted share minting capability to any registered hook
+
+**Severity:** Low
+**Confidence:** Medium
+**Affected Contract:** `MetaHooks.sol`
+**Function:** `mintShares()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `mintShares` function (line 407) allows any contract registered as an active hook to mint arbitrary shares to any address:
+
+```solidity
+function mintShares(address to, uint256 shares) external override onlyHook {
+    VAULT.mintShares(to, shares);
+    emit SharesMinted(to, shares, msg.sender);
+}
+```
+
+The `onlyHook` modifier (line 92-95) only checks that `hookData[IHooks(msg.sender)].active` is true. Any hook in the `hooks` array has unrestricted access to mint any amount of shares to any address.
+
+While hooks are registered by the `HOOK_MANAGER_ROLE` and are presumably trusted, this design creates a single-point-of-failure for share integrity: a single malicious or compromised hook can inflate the vault's share supply without bound. There is no per-hook rate limit, no maximum shares-per-call limit, and no validation that the minted shares correspond to actual deposited assets.
+
+This is not a direct exploit under the "privileged roles act in good faith" principle. However, this is an authority propagation vector: if the `HOOK_MANAGER_ROLE` honestly adds a hook that itself has a vulnerability, the compromised hook gains unlimited minting power. The blast radius of a single hook vulnerability extends to the entire vault's share supply.
+
+**Impact:**
+
+A bug in any registered hook contract could be leveraged to mint unbounded shares, diluting all existing shareholders. The attack vector is through authority propagation (honest admin + vulnerable hook = vault compromise), not direct admin abuse.
+
+**Recommendation:**
+
+Consider adding a per-operation or per-epoch cap on `mintShares` calls:
+
+```solidity
+uint256 public maxSharesPerMint;
+function mintShares(address to, uint256 shares) external override onlyHook {
+    require(shares <= maxSharesPerMint, "exceeds mint cap");
+    VAULT.mintShares(to, shares);
+    ...
+}
+```
+
+Alternatively, implement an allowance system where the `HOOK_MANAGER_ROLE` grants specific hooks a share minting budget.
+
+---
+
+### VPH-13: `ProcessAccountingGuardHook.checkTotalSupplyIncreaseGivenPerformanceFee` uses post-mint values for share conversion, creating a less strict bound
+
+**Severity:** Low
+**Confidence:** Medium
+**Affected Contract:** `ProcessAccountingGuardHook.sol`
+**Function:** `checkTotalSupplyIncreaseGivenPerformanceFee()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `checkTotalSupplyIncreaseGivenPerformanceFee` function computes `maxShares` by calling the internal `convertToShares` (line 273-275) with `totalSupplyAfterAccounting` and `totalBaseAssetsAfterAccounting`. The comment at line 271 acknowledges this: "maxShares is a looser bound that ensures the fee asset amount converted to vault shares at rate post mint is less than or equal to the total supply increase."
+
+Using post-mint values for the conversion introduces a circularity: the `totalSupplyAfterAccounting` already includes the minted fee shares, so the conversion rate is diluted. This makes the bound looser than necessary. If the conversion used pre-mint values (`totalSupplyBeforeAccounting` and `totalBaseAssetsBeforeAccounting`), it would produce a tighter bound that more accurately reflects the maximum legitimate minting.
+
+Specifically, the `convertToShares` formula is:
+
+```solidity
+assets.mulDiv(totalSupply + 1, totalAssets + 1, rounding)
+```
+
+With post-mint `totalSupply` (inflated by fee shares) and post-accounting `totalAssets` (increased by gains), the share-per-asset rate is lower than pre-mint, resulting in a higher `maxShares` allowance.
+
+**Impact:**
+
+The guard allows slightly more shares to be minted than the strict mathematical bound would permit. This looseness means the guard might not catch marginally excessive fee minting. The practical impact is bounded because the `maxTotalSupplyIncreaseRatio` check (line 232-243) provides a secondary cap.
+
+**Recommendation:**
+
+Document the intentional looseness clearly in NatSpec. If a tighter bound is desired, use pre-mint supply and pre-accounting total assets for the conversion:
+
+```solidity
+uint256 maxShares = convertToShares(
+    maxFeeInBaseAssets,
+    totalSupplyBeforeAccounting,
+    totalBaseAssetsBeforeAccounting,
+    Math.Rounding.Ceil  // Round up for conservative bound
+);
+```
+
+---
+
+### VPH-14: `ProcessAccountingGuardHook` does not verify constructor parameter consistency
+
+**Severity:** Low
+**Confidence:** High
+**Affected Contract:** `ProcessAccountingGuardHook.sol`
+**Function:** `constructor()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The constructor accepts six parameters but performs no validation:
+
+```solidity
+// src/hooks/ProcessAccountingGuardHook.sol, lines 76-91
+constructor(
+    address _vault,
+    address _owner,
+    uint256 _maxTotalAssetsDecreaseRatio,
+    uint256 _maxTotalAssetsIncreaseRatio,
+    uint256 _maxTotalSupplyIncreaseRatio,
+    uint256 _expectedPerformanceFee
+) {
+    VAULT = IVault(_vault);
+    owner = _owner;
+    ...
+}
+```
+
+Missing checks:
+1. `_vault != address(0)` -- a zero vault address makes the hook permanently non-functional
+2. `_owner != address(0)` -- a zero owner permanently locks all configuration setters
+3. Ratio parameters are within reasonable bounds (e.g., <= 1e18)
+4. `_expectedPerformanceFee` is within a reasonable range
+
+By contrast, `MetaHooks` validates `vault_ == address(0)` in its constructor (line 104).
+
+**Impact:**
+
+Misconfiguration at deployment time creates an irreversible broken state because `VAULT` and `owner` are both `immutable`. Since the contract cannot be upgraded or reconfigured, it must be redeployed.
+
+**Recommendation:**
+
+Add constructor validation:
+
+```solidity
+constructor(...) {
+    require(_vault != address(0), "zero vault");
+    require(_owner != address(0), "zero owner");
+    require(_maxTotalAssetsDecreaseRatio <= RATIO_DENOMINATOR, "decrease ratio too high");
+    require(_maxTotalAssetsIncreaseRatio <= RATIO_DENOMINATOR, "increase ratio too high");
+    ...
+}
+```
+
+---
+
+### VPH-15: `VaultManager` constructor does not validate that the vault address is non-zero
+
+**Severity:** Low
+**Confidence:** High
+**Affected Contract:** `VaultManager.sol`
+**Function:** `constructor()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The constructor of `VaultManager`:
+
+```solidity
+// src/admin/VaultManager.sol, lines 35-40
+constructor(address _vault, address defaultAdmin, address bufferAdmin, address moduleManager) {
+    vault = IVault(_vault);
+    _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
+    _grantRole(BUFFER_ADMIN_ROLE, bufferAdmin);
+    _grantRole(MODULE_MANAGER_ROLE, moduleManager);
+}
+```
+
+There is no check for `_vault != address(0)`. Since `vault` is `immutable`, a zero-address vault would make the entire contract non-functional, and the contract would need to be redeployed. Similarly, `defaultAdmin`, `bufferAdmin`, and `moduleManager` are not validated.
+
+**Impact:**
+
+Low -- deployment error results in a non-functional contract that must be redeployed. No funds are at risk as the contract holds no assets.
+
+**Recommendation:**
+
+Add zero-address checks:
+
+```solidity
+require(_vault != address(0), "zero vault");
+require(defaultAdmin != address(0), "zero admin");
+```
+
+---
+
+### VPH-16: `VaultManager._isVaultAsset` uses an unreliable index-based asset verification approach
+
+**Severity:** Low
+**Confidence:** Medium
+**Affected Contract:** `VaultManager.sol`
+**Function:** `_isVaultAsset()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `_isVaultAsset` function verifies an asset by:
+1. Getting the asset's stored index via `vault.getAsset(asset).index`
+2. Getting the full assets array via `vault.getAssets()`
+3. Checking `vaultIndex < allAssets.length && allAssets[vaultIndex] == asset`
+
+The TODO comment at line 59 acknowledges this: "TODO: optimizse using vault.hasAsset() post upgrade."
+
+This approach has an edge case: if an asset has been deleted from the vault (leaving a zero slot in the assets array per Solidity's `delete` behavior on arrays), a different asset that happens to be at the same index could pass the check incorrectly. The function also relies on the vault's internal index mapping being consistent with the array order, which is an assumption about the vault's implementation.
+
+Additionally, `vault.getAssets()` copies the entire assets array into memory. For vaults with many assets, this is gas-expensive for a validation check.
+
+**Code Reference:**
+
+```solidity
+// src/admin/VaultManager.sol, lines 58-63
+function _isVaultAsset(address asset) public view returns (bool) {
+    // TODO: optimizse using vault.hasAsset() post upgrade
+    uint256 vaultIndex = vault.getAsset(asset).index;
+    address[] memory allAssets = vault.getAssets();
+    return vaultIndex < allAssets.length && allAssets[vaultIndex] == asset;
+}
+```
+
+**Impact:**
+
+If the vault's asset management creates inconsistencies between the index mapping and the array (e.g., after deletions), the check could produce false positives or false negatives. Practical impact depends on the vault implementation.
+
+**Recommendation:**
+
+Replace with the planned `vault.hasAsset()` call when available. In the meantime, add additional validation or document the assumptions about the vault's index consistency.
+
+---
+
+### VPH-17: `MetaHooks.setConfig` always reverts, preventing standard IHooks configuration flow
+
+**Severity:** Informational
+**Confidence:** High
+**Affected Contract:** `MetaHooks.sol`
+**Function:** `setConfig()`
+**Sources:** Pipeline G (Forefy + Archethect)
+
+**Description:**
+
+The `setConfig` function always reverts with `NotSupported()`:
+
+```solidity
+// src/hooks/MetaHooks.sol, lines 205-207
+function setConfig(Config memory) public pure override {
+    revert NotSupported();
+}
+```
+
+This is intentional -- MetaHooks derives its config from the aggregated configs of its child hooks via `_syncConfigBitmap()`. However, this breaks the `IHooks` interface contract: any caller that expects to configure a hook via `setConfig` will receive an unexpected revert.
+
+The same pattern exists in `ProcessAccountingGuardHook.setConfig` (line 154).
+
+**Impact:**
+
+No security impact. Both contracts intentionally override this interface method to prevent external configuration. The `getConfig` function correctly returns the aggregated/static config.
+
+**Recommendation:**
+
+Document the intentional deviation from the `IHooks` interface in NatSpec comments to prevent confusion for integrators.
 
 ---
 

@@ -7,6 +7,7 @@
 - **Date:** 2026-03-17
 - **Solidity Version:** ^0.8.0 (SafeGuard.sol), ^0.8.24 (Guard.sol, VaultLib.sol dependencies)
 - **Framework:** Foundry
+- **Additional Pipeline (G: Forefy+Archethect):** Merged 2026-03-17. OpenAudit findings OA-SG-03 through OA-SG-11 evaluated; 5 new findings added, 4 duplicates merged as additional sources.
 
 ## Audit Scope
 
@@ -29,6 +30,7 @@
 | **C: State Inconsistency Analysis** | Diamond/ERC-7201 storage mapping, cross-slot coupling analysis | Completed |
 | **D: Pashov Multi-Vector Scan** | 4-perspective analysis: access control, reentrancy, arithmetic, logic/business flow | Completed |
 | **E: QuillAI Modules** | semantic-guard-analysis, dos-griefing-analysis, external-call-safety | Completed |
+| **G: Forefy + Archethect** | Protocol-specific 5-layer audit + SETUP-MAP-HUNT-ATTACK methodology | Completed |
 
 ## Executive Summary
 
@@ -38,18 +40,50 @@ The contract is relatively simple with a focused attack surface. The architectur
 
 Five confirmed findings were identified across the pipelines, ranging from Medium to Informational severity. No Critical or High severity issues were found.
 
+Pipeline G (Forefy + Archethect) was subsequently applied, identifying 9 findings of which 4 were duplicates of existing findings (added as additional sources) and 5 were genuinely new: 1 High (guard disable without timelock), 2 Medium (ETH value not validated on permitted calls, missing storage gap), and 2 Low (supportsInterface not calling super, positional ABI decoding with dynamic types).
+
 ## Findings Summary
 
 | Severity | Count |
 |----------|-------|
 | Critical | 0 |
-| High | 0 |
-| Medium | 2 |
-| Low | 3 |
+| High | 1 |
+| Medium | 4 |
+| Low | 5 |
 | Informational | 6 |
-| **Total** | **11** |
+| **Total** | **16** |
 
 ## Detailed Findings
+
+---
+
+### [H-01] Guard Can Be Fully Disabled by `GUARD_ADMIN_ROLE` Without Timelock, Enabling Instant Bypass of All Transaction Validation
+
+**Severity:** High
+**Confidence:** High
+**Affected Contract(s):** `SafeGuard.sol` (lines 145-153)
+**Sources:** Pipeline G (Forefy / Archethect)
+
+**Description:**
+
+The functions `setCheckTransactionEnabled(bool)` and `setCheckModuleTransactionEnabled(bool)` allow a holder of `GUARD_ADMIN_ROLE` to instantly disable all transaction validation by setting either flag to `false`. When `checkTransactionEnabled` is `false`, `checkTransaction` returns immediately without any validation (line 101). Similarly, when `checkModuleTransactionEnabled` is `false`, `checkModuleTransaction` returns `bytes32(0)` without validation (line 126).
+
+This is not a direct privileged-role malicious-action finding. Rather, it is an authority propagation and composition risk: if the `GUARD_ADMIN_ROLE` is held by a governance multisig, a compromised signer (or a social engineering attack on the timelock proposer) can disable all guards in a single transaction. There is no cooling-off period, no event-driven alert window for monitoring systems to react before the disable takes effect, and no minimum-enabled duration. The disable is effective immediately within the same block.
+
+The Archethect adversarial-deep analysis identifies this as a config-interaction vector: the combination of (1) instant disable capability and (2) no timelock creates a window where a compromised admin can disable guards and execute a malicious Safe transaction atomically in the same block, leaving no time for defensive monitoring.
+
+**Impact:**
+
+- A compromised `GUARD_ADMIN_ROLE` holder can atomically disable all guard checks and execute arbitrary transactions through the Safe in the same block.
+- No external monitoring system can detect and react to the guard being disabled before the malicious transaction executes.
+- This effectively reduces the security of the entire guard system to the security of the `GUARD_ADMIN_ROLE` key, with no defense-in-depth.
+
+**Recommendation:**
+
+Implement a timelock or a two-step process for disabling the guard:
+1. Add a `pendingDisable` state with a minimum delay (e.g., 24 hours) before the disable takes effect.
+2. Emit events on the pending state change so monitoring systems can alert.
+3. Alternatively, require a separate role (e.g., a security council multisig) to confirm the disable action.
 
 ---
 
@@ -148,12 +182,74 @@ Consider either:
 
 ---
 
+### [M-03] ETH Value Not Validated on Permitted Function Calls, Allowing Unrestricted ETH Drainage
+
+**Severity:** Medium
+**Confidence:** Medium
+**Affected Contract(s):** `SafeGuard.sol` (lines 88-104), `Guard.sol` (lines 9-29)
+**Sources:** Pipeline G (Archethect)
+
+**Description:**
+
+The `Guard.validateCall` function extracts a 4-byte function selector from `data[:4]` (line 10 of Guard.sol) and validates the target + selector against configured rules. However, the `value` parameter (amount of ETH sent with the call) is only passed to a custom `IValidator` if one is configured (line 18). When no custom validator is set (the common case with just `paramRules`), the `value` parameter is completely ignored by the validation logic.
+
+This means a Safe transaction calling a permitted function on a permitted target can attach arbitrary ETH value. For example, if a rule permits calling `token.transfer(address,uint256)` on a specific target, the transaction can also send the Safe's entire ETH balance along with that call. The NatSpec on `checkTransaction` (line 83) states "Reverts on empty calldata (data.length < 4). ETH transfers with empty data are blocked." This confirms that plain ETH transfers are blocked, but it implicitly acknowledges that ETH sent alongside function calls is not validated.
+
+The Archethect economic-differential analysis flags this as a boundary-behavior issue: the guard creates a false sense of security by blocking plain ETH transfers while allowing the same economic outcome (draining ETH) through any permitted function call.
+
+**Impact:**
+
+- An operator with access to submit Safe transactions can drain the Safe's entire ETH balance by piggy-backing ETH value onto any permitted function call.
+- The guard's intent to restrict ETH movements is incomplete -- plain transfers are blocked but ETH attached to function calls is not.
+- If the Safe holds significant ETH, this is a direct fund-loss vector for any party that can submit transactions to the Safe (subject to signature thresholds).
+
+**Recommendation:**
+
+Add ETH value validation to the `Guard.validateCall` function, either:
+1. Reject any call with `value > 0` unless the rule explicitly allows ETH transfer for that function.
+2. Add a `maxValue` field to `FunctionRule` that caps the ETH that can be sent with each call.
+3. At minimum, add a global `allowETHTransfer` flag per rule that must be explicitly set.
+
+---
+
+### [M-04] Missing Storage Gap in `SafeGuard` Risks Storage Collision on Upgrade
+
+**Severity:** Medium
+**Confidence:** Medium
+**Affected Contract(s):** `SafeGuard.sol` (line 15)
+**Sources:** Pipeline G (Forefy)
+
+**Description:**
+
+`SafeGuard` inherits from `BaseTransactionGuard`, `BaseModuleGuard`, and `AccessControlUpgradeable`. The contract uses an upgradeable pattern (evidenced by `_disableInitializers()` in the constructor at line 57 and the `initializer` modifier on `initialize` at line 65). While the contract's own state uses a diamond storage pattern (`_getSafeGuardStorage()` with an assembly-set slot at line 36), the parent contracts `BaseTransactionGuard` and `BaseModuleGuard` from the Gnosis Safe codebase may use sequential storage slots.
+
+The contract declares no `__gap` array to reserve storage slots for future state variables. If `SafeGuard` is upgraded to a V2 that adds new state variables in the contract body (not in the diamond storage struct), these variables could collide with storage slots used by the inherited contracts or by variables added in a later version of `AccessControlUpgradeable`.
+
+The `AccessControlUpgradeable` from OpenZeppelin does include its own `__gap`, but the Safe base contracts (`BaseTransactionGuard`, `BaseModuleGuard`) may not. Without a `__gap` in `SafeGuard` itself, any future V2 implementation adding state variables at the contract level risks corrupting the storage layout.
+
+**Impact:**
+
+- A future upgrade adding state variables to `SafeGuard` (outside the diamond storage struct) could overwrite storage used by parent contracts, corrupting access control state or guard configuration.
+- The severity depends on whether future upgrades add contract-level state variables. The current implementation is safe because it only uses diamond storage for its own state.
+
+**Recommendation:**
+
+Add a `__gap` array at the end of the contract to reserve storage slots for future upgrades:
+
+```solidity
+uint256[50] private __gap;
+```
+
+This is a low-cost defensive measure that prevents storage collision if the contract is later extended with additional state variables outside the diamond storage struct.
+
+---
+
 ### [L-01] `validateCall` Is Public and Externally Callable by Anyone
 
 **Severity:** Low
 **Confidence:** High
 **Affected Contract(s):** `SafeGuard.sol` (line 182-184)
-**Sources:** Pipeline A (SCV - insufficient-access-control), Pipeline D (Pashov - Access Control)
+**Sources:** Pipeline A (SCV - insufficient-access-control), Pipeline D (Pashov - Access Control), Pipeline G (Forefy)
 
 **Description:**
 
@@ -260,6 +356,68 @@ Consider enforcing a maximum allowlist size per parameter rule. Alternatively, u
 
 ---
 
+### [L-04] `supportsInterface` Does Not Call `super`, Potentially Causing Incorrect ERC-165 Responses
+
+**Severity:** Low
+**Confidence:** Medium
+**Affected Contract(s):** `SafeGuard.sol` (lines 229-240)
+**Sources:** Pipeline G (Archethect)
+
+**Description:**
+
+The `supportsInterface` function overrides the implementations from `BaseTransactionGuard`, `BaseModuleGuard`, and `AccessControlUpgradeable`. The override explicitly checks for `ITransactionGuard`, `IModuleGuard`, `IERC165`, and `IAccessControl` interface IDs. However, the function does not call `super.supportsInterface(interfaceId)`, which means any interface IDs registered by the parent contracts' own `supportsInterface` implementations (beyond those explicitly listed) are not recognized.
+
+If `AccessControlUpgradeable.supportsInterface` registers additional interface IDs (such as `IAccessControlEnumerable` if the contract were to later inherit it), the override would silently drop those. More immediately, the hardcoded interface ID values in the comments (`0xe6d7a83a` for `ITransactionGuard`, `0x58401ed8` for `IModuleGuard`) should be verified against the actual interface definitions in the Safe codebase. If the Safe updates these interface IDs in a future version, the guard's `supportsInterface` would return incorrect results.
+
+**Impact:**
+
+- If the Safe's `ModuleManager` or `GuardManager` uses `supportsInterface` to verify that the guard supports the correct interface before setting it, an incorrect response could prevent the guard from being set on the Safe. Conversely, if a parent interface ID changes, the guard could be incorrectly accepted or rejected.
+- The practical risk is limited because the Safe currently checks for these exact interface IDs and they are unlikely to change.
+
+**Recommendation:**
+
+Call `super.supportsInterface(interfaceId)` as a fallback to ensure all parent-registered interfaces are supported:
+
+```solidity
+function supportsInterface(bytes4 interfaceId) public view virtual override(...) returns (bool) {
+    return interfaceId == type(ITransactionGuard).interfaceId
+        || interfaceId == type(IModuleGuard).interfaceId
+        || super.supportsInterface(interfaceId);
+}
+```
+
+---
+
+### [L-05] Guard Validation Relies on Positional ABI Parameter Decoding, Which Can Be Bypassed with Non-Standard ABI Encoding
+
+**Severity:** Low
+**Confidence:** Low
+**Affected Contract(s):** `Guard.sol` (lines 22-28)
+**Sources:** Pipeline G (Archethect)
+
+**Description:**
+
+The `Guard.validateCall` function validates parameters by decoding them at fixed offsets: `abi.decode(data[4 + i * 32:], (address))` (line 24). This assumes that parameters are ABI-encoded in standard sequential format, where parameter `i` starts at byte offset `4 + i * 32`.
+
+However, the ABI specification allows dynamic types (arrays, bytes, strings) to use offset pointers. If a function signature includes dynamic types before an ADDRESS parameter, the ADDRESS parameter's actual data will not be at the expected fixed offset. The guard would decode the wrong bytes as an address, potentially validating an incorrect value.
+
+For example, consider a function `foo(bytes data, address recipient)`. The `paramRules[1]` (for the address parameter at index 1) would decode `data[4 + 1*32:]` which would actually contain the offset pointer for the `bytes` parameter's data, not the `address` value. The actual address would be at a different offset determined by the dynamic encoding.
+
+Note: This issue is related to M-02 (non-ADDRESS types silently skipped) but addresses a distinct root cause: even ADDRESS validation is incorrect when dynamic types precede it in the function signature.
+
+**Impact:**
+
+- Rules for functions with dynamic-type parameters preceding ADDRESS parameters will validate incorrect data, potentially allowing unauthorized addresses to pass allowlist checks.
+- The severity depends on which function signatures are configured as rules. If all configured functions use only fixed-size types (address, uint256, bool, etc.) in the correct order, this issue does not manifest.
+
+**Recommendation:**
+
+1. Document that `Guard.validateCall` only supports function signatures with fixed-size parameter types, and that dynamic types (bytes, string, arrays) must not precede validated ADDRESS parameters.
+2. Consider implementing proper ABI decoding that respects offset pointers for dynamic types.
+3. Alternatively, restrict `paramRules` validation to only the first N parameters and require that validated parameters appear before any dynamic types in the function signature.
+
+---
+
 ## Informational Notes
 
 ### [I-01] Diamond Storage Slot Comment Mismatch in VaultLib
@@ -284,15 +442,17 @@ function getProcessorStorage() public pure returns (IVault.ProcessorStorage stor
 
 ---
 
-### [I-02] `validateCall` Self-Call Pattern Incurs Unnecessary Gas Overhead
+### [I-02] `validateCall` Self-Call Pattern Incurs Unnecessary Gas Overhead and Introduces Subtle STATICCALL/Proxy Risks
 
 **Severity:** Informational
 **Affected Contract(s):** `SafeGuard.sol` (lines 102-103, 127-128)
-**Sources:** Pipeline B (Feynman)
+**Sources:** Pipeline B (Feynman), Pipeline G (Archethect)
 
 The contract calls `SafeGuard(address(this)).validateCall(to, value, data)` to convert `memory` data to `calldata`. This incurs the overhead of an external CALL opcode (including the 2600 gas cold-access penalty on first call, 100 gas base cost, and ABI encoding/decoding overhead). The developer has noted this: "calls back to itself to be able to pass in a calldata parameter. Less gas efficient."
 
 An alternative approach would be to use inline assembly to perform the calldata slicing directly, avoiding the external self-call entirely.
+
+Additionally, Pipeline G (Archethect) identifies further risks with this pattern: (1) because `checkTransaction` is `view`, the self-call uses `STATICCALL`, meaning any custom `IValidator` that attempts state modifications will silently fail rather than revert, providing a false sense of security; (2) if the guard is behind a proxy, the self-call routes through the proxy's fallback, adding a trust assumption on proxy routing behavior; and (3) tight `safeTxGas` limits combined with the extra gas overhead could cause guard checks to revert, blocking otherwise-permitted transactions.
 
 ---
 
@@ -300,7 +460,7 @@ An alternative approach would be to use inline assembly to perform the calldata 
 
 **Severity:** Informational
 **Affected Contract(s):** `SafeGuard.sol` (line 65)
-**Sources:** Pipeline D (Pashov - Logic)
+**Sources:** Pipeline D (Pashov - Logic), Pipeline G (Forefy)
 
 The `initialize` function does not check whether `_admin` is `address(0)`. If called with `address(0)`, all three roles (`DEFAULT_ADMIN_ROLE`, `PROCESSOR_MANAGER_ROLE`, `GUARD_ADMIN_ROLE`) would be granted to `address(0)`, effectively making the contract unmanageable since no one could ever call role-protected functions. The `initializer` modifier prevents re-initialization, so this would brick the proxy.
 
@@ -338,7 +498,7 @@ This means the guard cannot detect or revert on post-execution state changes. Fo
 
 **Severity:** Informational
 **Affected Contract(s):** `SafeGuard.sol` (line 193-199), `VaultLib.sol` (lines 321-324)
-**Sources:** Pipeline D (Pashov - Logic)
+**Sources:** Pipeline D (Pashov - Logic), Pipeline G (Forefy)
 
 The `setProcessorRules` function (and the underlying `VaultLib.setProcessorRule`) does not validate that the `target` address is non-zero or that the `functionSig` is non-zero. A PROCESSOR_MANAGER could accidentally set a rule for `address(0)` with `bytes4(0)`, which would be a meaningless rule but would consume storage.
 
@@ -406,3 +566,14 @@ No storage collisions were identified between these three storage regions. The d
 - **semantic-guard-analysis:** The guard's semantic model only covers target + selector + address parameters. It does not model transaction value, gas parameters, or operation type. This is a restricted threat model.
 - **dos-griefing-analysis:** Linear allowlist scan is O(n) per address parameter. Combined with multiple address parameters, worst case is O(n*m) where n is allowlist size and m is number of address parameters.
 - **external-call-safety:** The self-call pattern in `checkTransaction` is safe because it targets `address(this)` with a known function signature and is a `view` call. No callback risk.
+
+### Pipeline G: Forefy + Archethect Analysis
+
+Protocol-specific 5-layer audit using SETUP-MAP-HUNT-ATTACK methodology. Key contributions:
+
+- **SETUP:** Identified the upgradeable proxy pattern and storage layout assumptions.
+- **MAP:** Mapped the authority flow from `GUARD_ADMIN_ROLE` to guard enable/disable, identifying the lack of timelock as an authority propagation risk (H-01).
+- **HUNT:** Discovered the ETH value validation gap on permitted function calls (M-03), the missing `__gap` for upgrade safety (M-04), and the `supportsInterface` super-call omission (L-04).
+- **ATTACK:** Constructed the adversarial scenario where a compromised admin atomically disables the guard and executes a malicious transaction in the same block (H-01). Also identified the positional ABI decoding bypass vector with dynamic-type parameters (L-05).
+
+Duplicate findings from this pipeline (merged as additional sources to existing findings): OA-SG-03 matched L-01, OA-SG-07 matched I-02, OA-SG-08 matched I-03, OA-SG-10 matched I-05.
