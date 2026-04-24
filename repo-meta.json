@@ -1,6 +1,6 @@
 {
   "description": "Tracks the source branch and commit for each flat repo copy",
-  "generated_at": "2026-03-17",
+  "generated_at": "2026-04-24",
   "repos": {
     "yieldnest-vault": {
       "url": "https://github.com/yieldnest/yieldnest-vault.git",
@@ -49,6 +49,12 @@
       "branch": "main",
       "commit": "1d19654d4913660279f50ef14079fb59508b0ab4",
       "commit_message": "Merge pull request #2 from yieldnest/deploy/wrapped-token-implementation"
+    },
+    "yieldnest-state-relay": {
+      "url": "https://github.com/yieldnest/yieldnest-state-relay.git",
+      "branch": "main",
+      "commit": "e15418f023a71f1ae855112591b28cf5a2683e5e",
+      "commit_message": "apply formatting"
     }
   }
 }
