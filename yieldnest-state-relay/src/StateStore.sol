@@ -9,6 +9,8 @@ import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/acce
  * @notice Key -> value registry with timestamp and writer allowlist (stub).
  */
 contract StateStore is Initializable, AccessControlUpgradeable {
+    string public constant VERSION = "0.1.0";
+
     struct StateUpdate {
         bytes value;
         uint256 version;
@@ -16,10 +18,11 @@ contract StateStore is Initializable, AccessControlUpgradeable {
     }
 
     struct Entry {
-        bytes value;
         uint256 version;
         uint64 srcTimestamp;
         uint64 updatedAt;
+        uint64 updatedAtBlock;
+        bytes value;
     }
 
     struct WriteResult {
@@ -32,7 +35,7 @@ contract StateStore is Initializable, AccessControlUpgradeable {
 
     /// @custom:storage-location erc7201:yieldnest.storage.state_store
     struct StateStoreStorage {
-        mapping(bytes32 key => Entry entry) entries;
+        mapping(bytes32 key => Entry[] entries) entries;
         mapping(uint256 version => bool supported) supportedVersions;
     }
 
@@ -41,11 +44,14 @@ contract StateStore is Initializable, AccessControlUpgradeable {
     bytes32 public constant WRITER_ROLE = keccak256("WRITER_ROLE");
 
     event SupportedVersionSet(uint256 version, bool previousSupported, bool newSupported);
-    event StateUpdated(bytes32 indexed key, uint256 version, uint64 srcTimestamp, uint64 updatedAt);
+    event StateUpdated(
+        bytes32 indexed key, uint256 version, uint64 srcTimestamp, uint64 updatedAt, uint64 updatedAtBlock
+    );
     event StateIgnored(bytes32 indexed key, uint256 version, uint64 srcTimestamp, uint64 storedSrcTimestamp);
 
     error StateStore_OwnerCannotBeZero();
     error StateStore_NotWriter();
+    error StateStore_EntryNotFound(bytes32 key);
     error StateStore_UnsupportedVersion(uint256 version);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -132,10 +138,11 @@ contract StateStore is Initializable, AccessControlUpgradeable {
         if (!isWriter(msg.sender)) revert StateStore_NotWriter();
         if (!$.supportedVersions[update.version]) revert StateStore_UnsupportedVersion(update.version);
 
-        Entry storage latestEntry = $.entries[key];
+        Entry[] storage entries = $.entries[key];
+        uint64 latestSrcTimestamp = entries.length == 0 ? 0 : entries[entries.length - 1].srcTimestamp;
 
-        if (update.srcTimestamp <= latestEntry.srcTimestamp) {
-            emit StateIgnored(key, update.version, update.srcTimestamp, latestEntry.srcTimestamp);
+        if (entries.length != 0 && update.srcTimestamp <= latestSrcTimestamp) {
+            emit StateIgnored(key, update.version, update.srcTimestamp, latestSrcTimestamp);
             return WriteResult({
                 written: false,
                 key: key,
@@ -145,12 +152,14 @@ contract StateStore is Initializable, AccessControlUpgradeable {
             });
         }
 
-        latestEntry.value = update.value;
-        latestEntry.version = update.version;
-        latestEntry.srcTimestamp = update.srcTimestamp;
-        latestEntry.updatedAt = uint64(block.timestamp);
+        Entry storage newEntry = entries.push();
+        newEntry.version = update.version;
+        newEntry.srcTimestamp = update.srcTimestamp;
+        newEntry.updatedAt = uint64(block.timestamp);
+        newEntry.updatedAtBlock = uint64(block.number);
+        newEntry.value = update.value;
 
-        emit StateUpdated(key, update.version, update.srcTimestamp, latestEntry.updatedAt);
+        emit StateUpdated(key, update.version, update.srcTimestamp, newEntry.updatedAt, newEntry.updatedAtBlock);
 
         return WriteResult({
             written: true,
@@ -175,10 +184,41 @@ contract StateStore is Initializable, AccessControlUpgradeable {
     /**
      * @notice Returns the stored entry for a relay key.
      * @param key Deterministic relay key to read.
-     * @return Stored entry for `key`.
+     * @return Stored latest entry for `key`.
      */
     function get(bytes32 key) external view returns (Entry memory) {
-        return _getStateStoreStorage().entries[key];
+        return _get(key, 0);
+    }
+
+    /**
+     * @notice Returns a historical entry for a relay key, indexed from the end.
+     * @param key Deterministic relay key to read.
+     * @param reverseIndex Zero-based reverse index where `0` is the latest entry.
+     * @return Stored entry at `reverseIndex` from the end for `key`.
+     */
+    function get(bytes32 key, uint256 reverseIndex) external view returns (Entry memory) {
+        return _get(key, reverseIndex);
+    }
+
+    /**
+     * @notice Returns a stored entry for a relay key, indexed from the end.
+     * @param key Deterministic relay key to read.
+     * @param reverseIndex Zero-based reverse index where `0` is the latest entry.
+     * @return Stored entry at `reverseIndex` from the end for `key`.
+     */
+    function _get(bytes32 key, uint256 reverseIndex) internal view returns (Entry memory) {
+        Entry[] storage entries = _getStateStoreStorage().entries[key];
+        if (entries.length == 0) revert StateStore_EntryNotFound(key);
+        return entries[entries.length - 1 - reverseIndex];
+    }
+
+    /**
+     * @notice Returns the number of stored entries for a relay key.
+     * @param key Deterministic relay key to query.
+     * @return Number of stored historical entries for `key`.
+     */
+    function length(bytes32 key) external view returns (uint256) {
+        return _getStateStoreStorage().entries[key].length;
     }
 
     /**

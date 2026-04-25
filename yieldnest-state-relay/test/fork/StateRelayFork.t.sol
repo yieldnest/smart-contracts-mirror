@@ -6,7 +6,6 @@ import {StateSender} from "src/StateSender.sol";
 import {LayerZeroSenderTransport} from "src/layerzero/LayerZeroSenderTransport.sol";
 import {LayerZeroReceiverTransport} from "src/layerzero/LayerZeroReceiverTransport.sol";
 import {KeyDerivation} from "src/KeyDerivation.sol";
-import {MessageSink} from "test/mocks/MessageSink.sol";
 import {StateReceiverHarness} from "test/mocks/StateReceiverHarness.sol";
 import {StateStore} from "src/StateStore.sol";
 import {RateAdapterUpgradeable} from "src/adapter/RateAdapterUpgradeable.sol";
@@ -24,21 +23,44 @@ abstract contract StateRelayForkConstants {
     bytes internal constant CONVERT_TO_ASSETS_CALLDATA = abi.encodeCall(IERC4626.convertToAssets, (ONE_SHARE));
 }
 
+abstract contract StateRelayForkAdapterHelpers is StateRelayForkConstants {
+    uint256 internal constant MAX_SOURCE_TIMESTAMP_SKEW = 1 hours;
+
+    function _deployRateAdapter(
+        address stateStore_,
+        bytes32 key,
+        uint256 maxSrcStaleness,
+        uint256 maxDstStaleness,
+        uint256 maxSourceTimestampSkew
+    )
+        internal
+        returns (RateAdapterUpgradeable)
+    {
+        RateAdapterUpgradeable adapterImpl = new RateAdapterUpgradeable();
+        bytes memory adapterInit = abi.encodeCall(
+            RateAdapterUpgradeable.initialize,
+            (stateStore_, key, maxSrcStaleness, maxDstStaleness, maxSourceTimestampSkew)
+        );
+        ERC1967Proxy adapterProxy = new ERC1967Proxy(address(adapterImpl), adapterInit);
+        return RateAdapterUpgradeable(address(adapterProxy));
+    }
+}
+
 /**
  * @notice Fork real chain state for staticcalls; delivery uses TestHelperOz5 (`verifyPackets`) in-process — not two live chains talking.
- * @dev Mainnet-only sender + MessageSink. Run: `forge test --match-contract StateRelayFork --rpc-url <MAINNET_RPC>`.
+ * @dev Mainnet-only sender + LayerZero receiver transport. Run: `forge test --match-contract StateRelayFork --rpc-url <MAINNET_RPC>`.
  * @dev RPC: pass a reliable mainnet URL via `--rpc-url`; set `ARBITRUM_RPC` in `.env` for the multi-fork test.
  *      Public RPCs often cause `failed to get storage` / `upstream connect error` / invalid JSON during storage reads.
  */
-abstract contract StateRelayForkTestBase is Test, TestHelperOz5, StateRelayForkConstants {
+abstract contract StateRelayForkTestBase is Test, TestHelperOz5, StateRelayForkAdapterHelpers {
     uint32 internal constant SRC_EID = 1;
     uint32 internal constant DST_EID = 2;
     uint256 internal constant DST_CHAIN_ID = 42161;
-    uint256 internal constant MAX_SOURCE_TIMESTAMP_SKEW = 1 hours;
 
     StateSender internal stateSender;
     LayerZeroSenderTransport internal transport;
-    MessageSink internal messageSink;
+    LayerZeroReceiverTransport internal receiverTransport;
+    StateStore internal destinationStateStore;
 
     /// @dev ynETHx vault on the forked chain (mainnet only in this base).
     address internal ynEthx;
@@ -60,44 +82,38 @@ abstract contract StateRelayForkTestBase is Test, TestHelperOz5, StateRelayForkC
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         stateSender = StateSender(address(proxy));
+        transport.grantRole(transport.SENDER_ROLE(), address(stateSender));
 
-        address sinkAddr =
-            _deployOApp(type(MessageSink).creationCode, abi.encode(address(endpoints[DST_EID]), address(this)));
-        messageSink = MessageSink(sinkAddr);
+        StateStore storeImpl = new StateStore();
+        bytes memory storeInit = abi.encodeCall(StateStore.initialize, (address(this), new address[](0)));
+        ERC1967Proxy storeProxy = new ERC1967Proxy(address(storeImpl), storeInit);
+        destinationStateStore = StateStore(address(storeProxy));
 
-        wireOApps(toAddressArray(address(transportProxy), sinkAddr));
-        transport.setDestination(
-            DST_CHAIN_ID,
-            DST_EID,
-            addressToBytes32(address(messageSink)),
-            OptionsBuilder.addExecutorLzReceiveOption(OptionsBuilder.newOptions(), 300_000, 0),
-            true
-        );
+        LayerZeroReceiverTransport receiverImpl = new LayerZeroReceiverTransport(address(endpoints[DST_EID]));
+        bytes memory receiverInit =
+            abi.encodeCall(LayerZeroReceiverTransport.initialize, (address(this), address(destinationStateStore)));
+        ERC1967Proxy receiverProxy = new ERC1967Proxy(address(receiverImpl), receiverInit);
+        receiverTransport = LayerZeroReceiverTransport(address(receiverProxy));
+        destinationStateStore.grantRole(destinationStateStore.WRITER_ROLE(), address(receiverTransport));
+
+        wireOApps(toAddressArray(address(transportProxy), address(receiverProxy)));
+        LayerZeroSenderTransport.DestinationConfig[] memory destinationConfigs =
+            new LayerZeroSenderTransport.DestinationConfig[](1);
+        destinationConfigs[0] = LayerZeroSenderTransport.DestinationConfig({
+            lzEid: DST_EID,
+            peer: addressToBytes32(address(receiverTransport)),
+            options: OptionsBuilder.addExecutorLzReceiveOption(OptionsBuilder.newOptions(), 300_000, 0),
+            enabled: true
+        });
+        uint256[] memory destinationIds = new uint256[](1);
+        destinationIds[0] = DST_CHAIN_ID;
+        transport.setDestination(destinationConfigs, destinationIds);
     }
 
     function toAddressArray(address a, address b) internal pure returns (address[] memory arr) {
         arr = new address[](2);
         arr[0] = a;
         arr[1] = b;
-    }
-
-    function _deployRateAdapter(
-        address stateStore_,
-        bytes32 key,
-        uint256 maxSrcStaleness,
-        uint256 maxDstStaleness,
-        uint256 maxSourceTimestampSkew
-    )
-        internal
-        returns (RateAdapterUpgradeable)
-    {
-        RateAdapterUpgradeable adapterImpl = new RateAdapterUpgradeable();
-        bytes memory adapterInit = abi.encodeCall(
-            RateAdapterUpgradeable.initialize,
-            (stateStore_, key, maxSrcStaleness, maxDstStaleness, maxSourceTimestampSkew)
-        );
-        ERC1967Proxy adapterProxy = new ERC1967Proxy(address(adapterImpl), adapterInit);
-        return RateAdapterUpgradeable(address(adapterProxy));
     }
 
     function _assertYnEthxConvertToAssetsRelayed() internal {
@@ -109,21 +125,18 @@ abstract contract StateRelayForkTestBase is Test, TestHelperOz5, StateRelayForkC
         assertTrue(quoteData.transportQuote.feeAmount > 0, "expected non-zero native fee");
 
         stateSender.sendState{value: quoteData.transportQuote.feeAmount}(DST_CHAIN_ID);
-        verifyPackets(DST_EID, addressToBytes32(address(messageSink)));
-
-        assertEq(messageSink.lastMessage().length, 192, "message size");
-        (uint8 msgVersion, bytes32 key, bytes memory stateData, uint64 ts) =
-            abi.decode(messageSink.lastMessage(), (uint8, bytes32, bytes, uint64));
-
-        assertEq(msgVersion, 1, "relay version");
-        assertEq(ts, block.timestamp);
-        assertEq(stateData.length, 32);
-        assertEq(abi.decode(stateData, (uint256)), expectedAssets);
+        verifyPackets(DST_EID, addressToBytes32(address(receiverTransport)));
 
         bytes32 expectedKey = KeyDerivation.deriveKey(block.chainid, ynEthx, CONVERT_TO_ASSETS_CALLDATA);
+        StateStore.Entry memory entry = destinationStateStore.get(expectedKey);
+
+        assertEq(entry.version, 1, "relay version");
+        assertEq(entry.srcTimestamp, block.timestamp);
+        assertEq(entry.value.length, 32);
+        assertEq(abi.decode(entry.value, (uint256)), expectedAssets);
         assertEq(quoteData.key, expectedKey);
-        assertEq(quoteData.message, messageSink.lastMessage());
-        assertEq(key, expectedKey);
+        assertEq(entry.updatedAt, block.timestamp);
+        assertEq(entry.updatedAtBlock, block.number);
     }
 
     function _assertInsufficientNativeFeeReverts() internal {
@@ -153,7 +166,7 @@ contract StateRelayForkMainnetTest is StateRelayForkTestBase {
  *         StateStore + StateReceiver (harness simulates LZ payload). Models production: L1 rate → L2 store.
  * @dev Wire format to the receiver is `abi.encode(uint256 version, bytes32 key, bytes value, uint64 srcTimestamp)`.
  */
-contract StateRelayForkMainnetToArbitrumTest is Test, TestHelperOz5, StateRelayForkConstants {
+contract StateRelayForkMainnetToArbitrumTest is Test, TestHelperOz5, StateRelayForkAdapterHelpers {
     uint32 internal constant ARB_EID = 1;
 
     uint256 internal forkMainnet;

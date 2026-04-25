@@ -43,6 +43,7 @@ contract StateReceiverTest is Test, TestHelperOz5 {
         bytes memory stored = stateStore.get(KEY).value;
         assertEq(stored, value);
         assertEq(abi.decode(stored, (uint256)), 1e18);
+        assertEq(stateStore.length(KEY), 1);
     }
 
     function test_receivePayload_unsupportedVersion_reverts() public {
@@ -53,10 +54,9 @@ contract StateReceiverTest is Test, TestHelperOz5 {
         vm.expectRevert(abi.encodeWithSelector(StateStore.StateStore_UnsupportedVersion.selector, uint256(99)));
         receiver.receivePayload(message);
 
-        StateStore.Entry memory entry = stateStore.get(KEY);
-        assertEq(entry.value.length, 0);
-        assertEq(entry.srcTimestamp, 0);
-        assertEq(entry.updatedAt, 0);
+        assertEq(stateStore.length(KEY), 0);
+        vm.expectRevert(abi.encodeWithSelector(StateStore.StateStore_EntryNotFound.selector, KEY));
+        stateStore.get(KEY);
     }
 
     function test_receivePayload_setSupportedVersion_thenReceives() public {
@@ -70,10 +70,12 @@ contract StateReceiverTest is Test, TestHelperOz5 {
 
         bytes memory stored = stateStore.get(KEY).value;
         assertEq(abi.decode(stored, (uint256)), 2e18);
+        assertEq(stateStore.length(KEY), 1);
     }
 
     function test_receivePayload_staleTimestamp_same_block_no_revert() public {
         uint64 ts = uint64(block.timestamp);
+        uint256 writeBlock = block.number;
         receiver.receivePayload(abi.encode(uint256(1), KEY, abi.encode(uint256(1e18)), ts));
 
         receiver.receivePayload(abi.encode(uint256(1), KEY, abi.encode(uint256(2e18)), ts));
@@ -83,11 +85,14 @@ contract StateReceiverTest is Test, TestHelperOz5 {
         assertEq(entry.version, 1);
         assertEq(entry.srcTimestamp, ts);
         assertEq(entry.updatedAt, ts);
+        assertEq(entry.updatedAtBlock, writeBlock);
+        assertEq(stateStore.length(KEY), 1);
     }
 
     function test_receivePayload_lowerTimestamp_future_block_no_revert(uint256 blocksPassed) public {
         vm.assume(blocksPassed < 100000);
         uint64 ts = uint64(block.timestamp);
+        uint256 writeBlock = block.number;
         receiver.receivePayload(abi.encode(uint256(1), KEY, abi.encode(uint256(1e18)), ts));
 
         vm.roll(block.number + blocksPassed);
@@ -99,5 +104,7 @@ contract StateReceiverTest is Test, TestHelperOz5 {
         assertEq(entry.version, 1);
         assertEq(entry.srcTimestamp, ts);
         assertEq(entry.updatedAt, ts);
+        assertEq(entry.updatedAtBlock, writeBlock);
+        assertEq(stateStore.length(KEY), 1);
     }
 }
