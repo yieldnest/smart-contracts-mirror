@@ -2,6 +2,8 @@
 pragma solidity ^0.8.22;
 
 import {OAppUpgradeable} from "@layerzerolabs/oapp-evm-upgradeable/contracts/oapp/OAppUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {Origin} from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppReceiver.sol";
 import {StateStore} from "../StateStore.sol";
 
@@ -9,8 +11,9 @@ import {StateStore} from "../StateStore.sol";
  * @title LayerZeroReceiverTransport
  * @notice Destination-chain upgradeable OApp: receives LZ message, decodes, forwards to StateStore (stub).
  */
-contract LayerZeroReceiverTransport is OAppUpgradeable {
+contract LayerZeroReceiverTransport is OAppUpgradeable, AccessControlUpgradeable, PausableUpgradeable {
     string public constant VERSION = "0.1.0";
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /// @custom:storage-location erc7201:yieldnest.storage.lz_receiver_transport
     struct LayerZeroReceiverTransportStorage {
@@ -37,9 +40,26 @@ contract LayerZeroReceiverTransport is OAppUpgradeable {
     function initialize(address _owner, address _stateStore) external initializer {
         if (_owner == address(0)) revert LayerZeroReceiverTransport_InvalidOwner();
         if (_stateStore == address(0)) revert LayerZeroReceiverTransport_InvalidStateStore();
+        __AccessControl_init();
         __Ownable_init(_owner);
         __OApp_init(_owner);
+        __Pausable_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _getLayerZeroReceiverTransportStorage().stateStore = StateStore(_stateStore);
+    }
+
+    /**
+     * @notice Pauses inbound LayerZero message processing.
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Unpauses inbound LayerZero message processing.
+     */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 
     /**
@@ -49,6 +69,7 @@ contract LayerZeroReceiverTransport is OAppUpgradeable {
     function _lzReceive(Origin calldata, bytes32, bytes calldata _message, address, bytes calldata)
         internal
         virtual
+        whenNotPaused
         override
     {
         StateStore.WriteResult memory result = _getLayerZeroReceiverTransportStorage().stateStore.write(_message);
