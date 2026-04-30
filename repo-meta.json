@@ -1,6 +1,6 @@
 {
   "description": "Tracks the source branch and commit for each flat repo copy",
-  "generated_at": "2026-04-28",
+  "generated_at": "2026-04-30",
   "repos": {
     "yieldnest-vault": {
       "url": "https://github.com/yieldnest/yieldnest-vault.git",
@@ -50,11 +50,11 @@
       "commit": "1d19654d4913660279f50ef14079fb59508b0ab4",
       "commit_message": "Merge pull request #2 from yieldnest/deploy/wrapped-token-implementation"
     },
-    "yieldnest-state-relay": {
-      "url": "https://github.com/yieldnest/yieldnest-state-relay.git",
+    "cross-chain-state-relay": {
+      "url": "https://github.com/yieldnest/cross-chain-state-relay.git",
       "branch": "main",
-      "commit": "9b7c458971583cfdb44d73043da44a61e795f15c",
-      "commit_message": "Use pauser role for receiver transport"
+      "commit": "dcd8aae33c42f26ea5893407bda279e3b9e9078e",
+      "commit_message": "Add explicit state history bounds checks"
     }
   }
 }

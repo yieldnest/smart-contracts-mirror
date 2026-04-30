@@ -54,6 +54,7 @@ contract StateStore is Initializable, AccessControlUpgradeable, PausableUpgradea
     error StateStore_OwnerCannotBeZero();
     error StateStore_NotWriter();
     error StateStore_EntryNotFound(bytes32 key);
+    error StateStore_HistoryIndexOutOfBounds(bytes32 key, uint256 reverseIndex, uint256 length);
     error StateStore_UnsupportedVersion(uint256 version);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -161,6 +162,7 @@ contract StateStore is Initializable, AccessControlUpgradeable, PausableUpgradea
         if (!isWriter(msg.sender)) revert StateStore_NotWriter();
         if (!$.supportedVersions[update.version]) revert StateStore_UnsupportedVersion(update.version);
 
+        // Entries are stored in an append-only array. Last one is the latest.
         Entry[] storage entries = $.entries[key];
         uint64 latestSrcTimestamp = entries.length == 0 ? 0 : entries[entries.length - 1].srcTimestamp;
 
@@ -186,11 +188,7 @@ contract StateStore is Initializable, AccessControlUpgradeable, PausableUpgradea
         emit StateUpdated(key, update.version, update.srcTimestamp, newEntry.updatedAt, newEntry.updatedAtBlock);
 
         return WriteResult({
-            written: true,
-            key: key,
-            value: update.value,
-            version: update.version,
-            srcTimestamp: update.srcTimestamp
+            written: true, key: key, value: update.value, version: update.version, srcTimestamp: update.srcTimestamp
         });
     }
 
@@ -233,6 +231,9 @@ contract StateStore is Initializable, AccessControlUpgradeable, PausableUpgradea
     function _get(bytes32 key, uint256 reverseIndex) internal view returns (Entry memory) {
         Entry[] storage entries = _getStateStoreStorage().entries[key];
         if (entries.length == 0) revert StateStore_EntryNotFound(key);
+        if (reverseIndex >= entries.length) {
+            revert StateStore_HistoryIndexOutOfBounds(key, reverseIndex, entries.length);
+        }
         return entries[entries.length - 1 - reverseIndex];
     }
 
