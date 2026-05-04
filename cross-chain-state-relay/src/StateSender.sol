@@ -49,7 +49,7 @@ contract StateSender is AccessControlUpgradeable, PausableUpgradeable {
 
     /**
      * @notice Initializes the sender app with its transport and read target configuration.
-     * @param _owner Address granted admin, config-manager, and transport-manager roles.
+     * @param _owner Address granted admin, config-manager, transport-manager, and pauser roles.
      * @param _transport Transport adapter used to quote and send relay messages.
      * @param _target Contract queried via `staticcall` for relay state.
      * @param _callData Calldata used for the state read on `_target`.
@@ -64,6 +64,7 @@ contract StateSender is AccessControlUpgradeable, PausableUpgradeable {
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(CONFIG_MANAGER_ROLE, _owner);
+        _grantRole(PAUSER_ROLE, _owner);
         _grantRole(TRANSPORT_MANAGER_ROLE, _owner);
         _setTransport(_transport);
         $.target = _target;
@@ -126,6 +127,7 @@ contract StateSender is AccessControlUpgradeable, PausableUpgradeable {
     /**
      * @notice Quotes a relay send for a destination and returns the built payload metadata.
      * @param destinationId Application-level destination identifier understood by the transport.
+     * @dev NOTE: By convention, for EVM chains, destinationId is the chainId of the destination chain.
      * @return quoteData Transport quote, derived key, and encoded message for the send.
      */
     function quoteSendState(uint256 destinationId) public view returns (SendStateQuote memory quoteData) {

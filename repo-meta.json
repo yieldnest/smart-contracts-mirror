@@ -1,6 +1,6 @@
 {
   "description": "Tracks the source branch and commit for each flat repo copy",
-  "generated_at": "2026-04-30",
+  "generated_at": "2026-05-04",
   "repos": {
     "yieldnest-vault": {
       "url": "https://github.com/yieldnest/yieldnest-vault.git",
@@ -52,9 +52,9 @@
     },
     "cross-chain-state-relay": {
       "url": "https://github.com/yieldnest/cross-chain-state-relay.git",
-      "branch": "main",
-      "commit": "dcd8aae33c42f26ea5893407bda279e3b9e9078e",
-      "commit_message": "Add explicit state history bounds checks"
+      "branch": "feature/state-relay-b1",
+      "commit": "ecc2c71ee09086826bca7e26d89af805dfff3fc4",
+      "commit_message": "Refine per-chain relay verification output"
     }
   }
 }

@@ -66,10 +66,14 @@ abstract contract StateRelayLzConfigure is StateRelayBase {
             string memory label = senderLabels[i];
             uint256 srcChain = senderByLabel[label].chainId;
             if (srcChain == receiverChainId) continue;
-            address snd = stateSenderOf[senderSlot(srcChain, label)];
-            require(snd != address(0), "StateRelay: configure receiver: sender not deployed");
+            bytes32 senderConfigSlot = senderSlot(srcChain, label);
+            address stateSenderTransport = stateSenderTransportOf[senderConfigSlot];
+            require(
+                stateSenderTransport != address(0),
+                "StateRelay: configure receiver: sender transport missing in deployment JSON"
+            );
             remoteChainIds[k] = srcChain;
-            peerForRemote[k] = addressToBytes32(_senderTransport(snd));
+            peerForRemote[k] = addressToBytes32(stateSenderTransport);
             k++;
         }
     }
@@ -212,8 +216,8 @@ abstract contract StateRelayLzConfigure is StateRelayBase {
         for (uint256 i; i < otherChainIds.length; i++) {
             uint256 chainId = otherChainIds[i];
             uint32 eid = getEID(chainId);
-            (address lib, bool isDefault) = lzEndpoint.getReceiveLibrary(oapp, eid);
-            if (lib == getData(block.chainid).LZ_RECEIVE_LIB && isDefault == false) {
+            (address receiveLibrary, bool isDefault) = lzEndpoint.getReceiveLibrary(oapp, eid);
+            if (receiveLibrary == getData(block.chainid).LZ_RECEIVE_LIB && isDefault == false) {
                 console.log("Receive lib already set chainId", chainId);
                 continue;
             }
@@ -228,20 +232,21 @@ abstract contract StateRelayLzConfigure is StateRelayBase {
         Data storage data = getData(block.chainid);
         bool isTestnet = isTestnetChainId(block.chainid);
 
-        address[] memory requiredDVNs = new address[](isTestnet ? 1 : 2);
+        address[] memory requiredDVNs = new address[](isTestnet ? 1 : 3);
         uint64 confirmations = isTestnet ? 8 : 32;
-        uint8 requiredDVNCount = isTestnet ? 1 : 2;
+        uint8 requiredDVNCount = isTestnet ? 1 : 3;
 
         if (isTestnet) {
             requiredDVNs[0] = data.LZ_DVN;
         } else {
-            if (data.LZ_DVN > data.NETHERMIND_DVN) {
-                requiredDVNs[0] = data.NETHERMIND_DVN;
-                requiredDVNs[1] = data.LZ_DVN;
-            } else {
-                requiredDVNs[0] = data.LZ_DVN;
-                requiredDVNs[1] = data.NETHERMIND_DVN;
-            }
+            requiredDVNs[0] = data.LZ_DVN;
+            requiredDVNs[1] = data.NETHERMIND_DVN;
+            requiredDVNs[2] = data.CANARY_DVN;
+            // LayerZero ULN requires requiredDVNs/optionalDVNs to be sorted ascending; unsorted or duplicate
+            // entries revert with LZ_ULN_Unsorted. See:
+            // https://docs.layerzero.network/v2/concepts/verification-execution-services
+            // and UlnBase._assertNoDuplicates in the LayerZero V2 EVM MessageLib.
+            _sortAddresses(requiredDVNs);
         }
 
         _ulnConfig = UlnConfig({
@@ -252,6 +257,19 @@ abstract contract StateRelayLzConfigure is StateRelayBase {
             requiredDVNs: requiredDVNs,
             optionalDVNs: new address[](0)
         });
+    }
+
+    function _sortAddresses(address[] memory addrs) internal pure {
+        uint256 len = addrs.length;
+        for (uint256 i = 1; i < len; i++) {
+            address currentAddress = addrs[i];
+            uint256 j = i;
+            while (j > 0 && addrs[j - 1] > currentAddress) {
+                addrs[j] = addrs[j - 1];
+                j--;
+            }
+            addrs[j] = currentAddress;
+        }
     }
 
     function _configureDVNs(address oapp, uint256[] memory otherChainIds) internal {
