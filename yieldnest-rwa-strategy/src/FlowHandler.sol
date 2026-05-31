@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 pragma solidity ^0.8.28;
 
-import {AccessControlEnumerableUpgradeable} from
-    "lib/openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-import {IGnosisSafe} from "src/interfaces/IGnosisSafe.sol";
+import {BaseSafeModule} from "src/BaseSafeModule.sol";
 import {ISablierFlow, UD21x18} from "src/interfaces/sablier/ISablierFlow.sol";
 import {FlowMath} from "src/FlowMath.sol";
 
@@ -16,16 +14,18 @@ import {FlowMath} from "src/FlowMath.sol";
 ///         - Rate increases are bounded by a max delta and max absolute rate
 ///         - Stream pause/void/refund are handled directly by the multisig
 /// @dev Deployed behind a TransparentUpgradeableProxy.
-contract FlowHandler is AccessControlEnumerableUpgradeable {
-    /// @notice Role that can call disburse / decreaseRate (e.g. the FlowStrategyKeeper)
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+contract FlowHandler is BaseSafeModule {
+    /// @notice Role that can call disburse (e.g. the FlowStrategyKeeper)
+    bytes32 public constant DISBURSE_OPERATOR_ROLE = keccak256("DISBURSE_OPERATOR_ROLE");
+
+    /// @notice Role that can call decreaseRate
+    bytes32 public constant DECREASE_OPERATOR_ROLE = keccak256("DECREASE_OPERATOR_ROLE");
 
     /// @notice Role that can update configuration (APR, holding period, limits, borrower, feeWallet, feeFraction)
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     /// @custom:storage-location erc7201:yieldnest.storage.flow_handler
     struct FlowHandlerStorage {
-        address safe;
         address flow;
         uint256 streamId;
         address token;
@@ -40,7 +40,6 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
         uint256 feeFraction;
     }
 
-    error SafeExecutionFailed();
     error InvalidHoldingPeriod();
     error InvalidApr();
     error InvalidFeeFraction();
@@ -51,6 +50,7 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
     event LimitsUpdated(uint128 maxRateDelta, uint128 maxRate);
     event HoldingPeriodUpdated(uint256 holdingPeriod);
     event AprUpdated(uint256 apr);
+    event StreamRecipientUpdated(address streamRecipient);
     event BorrowerUpdated(address borrower);
     event FeeWalletUpdated(address feeWallet);
     event FeeFractionUpdated(uint256 feeFraction);
@@ -72,6 +72,7 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
     struct InitParams {
         address admin; // Admin address (DEFAULT_ADMIN_ROLE)
         address safe; // Gnosis Safe that is the stream sender
+        address safeGuard; // Optional SafeGuard invoked before each Safe module transaction
         address flow; // Sablier Flow contract address
         uint256 streamId; // Pre-existing stream ID owned by the Safe
         address token; // The ERC-20 token being streamed
@@ -85,35 +86,6 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
         uint256 feeFraction; // Fee denominator (>= 2)
     }
 
-    /// @notice Initialize the FlowHandler
-    /// @param params Initialization parameters
-    function initialize(InitParams calldata params) external initializer {
-        if (params.apr == 0 || params.apr > FlowMath.PRECISION) revert InvalidApr();
-        if (params.holdingPeriod == 0) revert InvalidHoldingPeriod();
-        if (params.borrower == address(0)) revert ZeroAddress();
-        if (params.feeWallet == address(0)) revert ZeroAddress();
-        if (params.feeFraction < 2) revert InvalidFeeFraction();
-
-        __AccessControlEnumerable_init();
-
-        _grantRole(DEFAULT_ADMIN_ROLE, params.admin);
-
-        FlowHandlerStorage storage $ = _getFlowHandlerStorage();
-        $.safe = params.safe;
-        $.flow = params.flow;
-        $.streamId = params.streamId;
-        $.token = params.token;
-        $.streamRecipient = params.streamRecipient;
-        $.tokenDecimals = ISablierFlow(params.flow).getTokenDecimals(params.streamId);
-        $.apr = params.apr;
-        $.holdingPeriod = params.holdingPeriod;
-        $.maxRateDelta = params.maxRateDelta;
-        $.maxRate = params.maxRate;
-        $.borrower = params.borrower;
-        $.feeWallet = params.feeWallet;
-        $.feeFraction = params.feeFraction;
-    }
-
     /// @notice Compute the interest for a given loan amount
     /// @param loanAmount The total loan amount
     /// @return interest The interest amount (without fees)
@@ -124,16 +96,36 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
 
     /// @notice Disburse a loan amount: deposit interest into the stream, adjust rate up,
     ///         transfer principal to borrower, and transfer fee to feeWallet.
-    /// @dev Caller must have OPERATOR_ROLE. Performs up to 5 Safe transactions.
+    /// @dev Caller must have DISBURSE_OPERATOR_ROLE. Performs up to 5 Safe transactions.
+    ///      This path is only for active streams with a non-zero rate.
+    ///      If the underlying Flow stream is paused or still at zero rate, this function intentionally reverts.
+    ///      Starting a zero-rate/paused stream is a separate operational action and must use Sablier Flow `restart(...)`.
     /// @param loanAmount The total available amount to disburse
     /// @return result The disbursement result
-    function disburse(uint256 loanAmount) external onlyRole(OPERATOR_ROLE) returns (DisburseResult memory result) {
+    function disburse(uint256 loanAmount)
+        external
+        onlyRole(DISBURSE_OPERATOR_ROLE)
+        returns (DisburseResult memory result)
+    {
         FlowHandlerStorage storage $ = _getFlowHandlerStorage();
-        uint128 currentRate;
-        (currentRate, result.interest, result.newRate) = _increaseStreamRate(loanAmount);
+        uint128 currentRate = uint128(UD21x18.unwrap(ISablierFlow($.flow).getRatePerSecond($.streamId)));
 
-        result.fee = uint256(result.interest) / $.feeFraction;
-        result.principal = loanAmount - uint256(result.interest) - result.fee;
+        FlowMath.Disbursement memory disbursement = FlowMath.calculateDisbursement(
+            loanAmount, currentRate, $.apr, $.holdingPeriod, $.tokenDecimals, $.maxRateDelta, $.maxRate, $.feeFraction
+        );
+
+        result.interest = disbursement.interest;
+        result.newRate = disbursement.newRate;
+        result.principal = disbursement.principal;
+        result.fee = disbursement.fee;
+
+        _executeSafe($.token, abi.encodeCall(IERC20.approve, ($.flow, result.interest)));
+        _executeSafe(
+            $.flow, abi.encodeCall(ISablierFlow.deposit, ($.streamId, result.interest, safe(), $.streamRecipient))
+        );
+        _executeSafe(
+            $.flow, abi.encodeCall(ISablierFlow.adjustRatePerSecond, ($.streamId, UD21x18.wrap(result.newRate)))
+        );
 
         // Transfer principal to borrower
         _executeSafe($.token, abi.encodeCall(IERC20.transfer, ($.borrower, result.principal)));
@@ -147,13 +139,13 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
     }
 
     /// @notice Given a repaid loanAmount, compute the rate reduction and adjust the stream down
-    /// @dev Caller must have OPERATOR_ROLE. Only adjusts the rate — does not refund deposited funds.
+    /// @dev Caller must have DECREASE_OPERATOR_ROLE. Only adjusts the rate — does not refund deposited funds.
     /// @param loanAmount The repaid loan amount from which the rate reduction is derived
     /// @return interest The interest amount corresponding to the repaid loan
     /// @return newRate The new rate per second after the decrease
     function decreaseRate(uint256 loanAmount)
         external
-        onlyRole(OPERATOR_ROLE)
+        onlyRole(DECREASE_OPERATOR_ROLE)
         returns (uint128 interest, uint128 newRate)
     {
         FlowHandlerStorage storage $ = _getFlowHandlerStorage();
@@ -167,6 +159,39 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
         _executeSafe($.flow, abi.encodeCall(ISablierFlow.adjustRatePerSecond, ($.streamId, UD21x18.wrap(newRate))));
 
         emit RateDecreased(currentRate, newRate, interest, loanAmount);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                SETTERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Initialize the FlowHandler
+    /// @param params Initialization parameters
+    function initialize(InitParams calldata params) external initializer {
+        if (params.apr == 0 || params.apr > FlowMath.PRECISION) revert InvalidApr();
+        if (params.holdingPeriod == 0) revert InvalidHoldingPeriod();
+        if (params.borrower == address(0)) revert ZeroAddress();
+        if (params.feeWallet == address(0)) revert ZeroAddress();
+        if (params.feeFraction < 2) revert InvalidFeeFraction();
+
+        __AccessControlEnumerable_init();
+        __BaseSafeModule_init(params.safe, params.safeGuard);
+
+        _grantRole(DEFAULT_ADMIN_ROLE, params.admin);
+
+        FlowHandlerStorage storage $ = _getFlowHandlerStorage();
+        $.flow = params.flow;
+        $.streamId = params.streamId;
+        $.token = params.token;
+        $.streamRecipient = params.streamRecipient;
+        $.tokenDecimals = ISablierFlow(params.flow).getTokenDecimals(params.streamId);
+        $.apr = params.apr;
+        $.holdingPeriod = params.holdingPeriod;
+        $.maxRateDelta = params.maxRateDelta;
+        $.maxRate = params.maxRate;
+        $.borrower = params.borrower;
+        $.feeWallet = params.feeWallet;
+        $.feeFraction = params.feeFraction;
     }
 
     /// @notice Update rate limits
@@ -195,6 +220,18 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
         emit AprUpdated(_apr);
     }
 
+    /// @notice Update the locally configured stream recipient used for Flow deposit validation.
+    /// @dev This does not change the actual Sablier stream NFT owner / recipient on the Flow contract.
+    ///      It is intentionally decoupled so operations can keep FlowHandler aligned with the live stream recipient.
+    ///      If the transferable stream NFT moves to a new owner, this value must also be updated before disbursements.
+    ///      This is by design to avoid depositing against a stale recipient configuration.
+    /// @param _streamRecipient New stream recipient address
+    function setStreamRecipient(address _streamRecipient) external onlyRole(MANAGER_ROLE) {
+        if (_streamRecipient == address(0)) revert ZeroAddress();
+        _getFlowHandlerStorage().streamRecipient = _streamRecipient;
+        emit StreamRecipientUpdated(_streamRecipient);
+    }
+
     /// @notice Update the borrower address
     /// @param _borrower New borrower address
     function setBorrower(address _borrower) external onlyRole(MANAGER_ROLE) {
@@ -219,41 +256,9 @@ contract FlowHandler is AccessControlEnumerableUpgradeable {
         emit FeeFractionUpdated(_feeFraction);
     }
 
-    /// @notice Internal: read current rate, compute increase, execute 3 Safe txs (approve, deposit, adjustRate)
-    function _increaseStreamRate(uint256 loanAmount)
-        internal
-        returns (uint128 currentRate, uint128 depositAmount, uint128 newRate)
-    {
-        FlowHandlerStorage storage $ = _getFlowHandlerStorage();
-        currentRate = uint128(UD21x18.unwrap(ISablierFlow($.flow).getRatePerSecond($.streamId)));
-
-        uint128 rateDelta;
-        (depositAmount, rateDelta, newRate) = FlowMath.calculateRateIncrease(
-            loanAmount, currentRate, $.apr, $.holdingPeriod, $.tokenDecimals, $.maxRateDelta, $.maxRate
-        );
-
-        _executeSafe($.token, abi.encodeCall(IERC20.approve, ($.flow, depositAmount)));
-        _executeSafe(
-            $.flow, abi.encodeCall(ISablierFlow.deposit, ($.streamId, depositAmount, $.safe, $.streamRecipient))
-        );
-        _executeSafe($.flow, abi.encodeCall(ISablierFlow.adjustRatePerSecond, ($.streamId, UD21x18.wrap(newRate))));
-    }
-
-    /// @notice Execute a call through the Safe as a module
-    function _executeSafe(address to, bytes memory data) internal {
-        bool success = IGnosisSafe(_getFlowHandlerStorage().safe).execTransactionFromModule(
-            to, 0, data, IGnosisSafe.Operation.Call
-        );
-        if (!success) revert SafeExecutionFailed();
-    }
-
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
-
-    function safe() public view returns (address) {
-        return _getFlowHandlerStorage().safe;
-    }
 
     function flow() public view returns (address) {
         return _getFlowHandlerStorage().flow;

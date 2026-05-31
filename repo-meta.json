@@ -1,6 +1,6 @@
 {
   "description": "Tracks the source branch and commit for each flat repo copy",
-  "generated_at": "2026-05-07",
+  "generated_at": "2026-05-31",
   "repos": {
     "yieldnest-vault": {
       "url": "https://github.com/yieldnest/yieldnest-vault.git",
@@ -59,8 +59,8 @@
     "yieldnest-rwa-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-rwa-strategy.git",
       "branch": "feature/sablier-flow-stream",
-      "commit": "75dafe083b3f63d9000a7b68b8adfda60154fd85",
-      "commit_message": "update getters section"
+      "commit": "b825a3885b8019f2d66bc111aaf137f6f7cf4e16",
+      "commit_message": "Add flow migration runbook"
     }
   }
 }
