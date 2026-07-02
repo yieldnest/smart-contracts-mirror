@@ -22,9 +22,9 @@
     },
     "yieldnest-vault-periphery": {
       "url": "https://github.com/yieldnest/yieldnest-vault-periphery.git",
-      "branch": "eth-max-vault-release-candidate",
-      "commit": "f8e9cf7f265fe5c4bddf11e666994f2048009b06",
-      "commit_message": "Merge pull request #36 from yieldnest/demo/verify-contract"
+      "branch": "feature/withdraw-requester",
+      "commit": "a05d9cb88d018ce33c66ad826ce7477b955d63cc",
+      "commit_message": "Return withdrawal request struct from getter"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
