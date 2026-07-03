@@ -6,6 +6,7 @@ import {IAccessControl} from "lib/openzeppelin-contracts/contracts/access/IAcces
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {WithdrawalRequestManager} from "src/withdrawal/WithdrawalRequestManager.sol";
 
 contract MockWithdrawAssetVault is ERC20 {
@@ -40,6 +41,22 @@ contract MockWithdrawAssetVault is ERC20 {
         ERC20(asset_).transfer(receiver, assets - transferShortfall);
 
         shares += returnAmountOffset;
+    }
+
+    function totalBaseAssets() external view returns (uint256) {
+        return totalSupply();
+    }
+
+    function provider() external view returns (address) {
+        return address(this);
+    }
+
+    function getAsset(address) external pure returns (IVault.AssetParams memory) {
+        return IVault.AssetParams({index: 0, active: true, decimals: 18});
+    }
+
+    function getRate(address) external pure returns (uint256) {
+        return 1 ether;
     }
 }
 
@@ -93,6 +110,8 @@ contract WithdrawalRequestManagerTest is Test {
 
         assertEq(id, 1);
         assertEq(manager.nextRequestId(), 2);
+        assertTrue(manager.requestExists(id));
+        assertFalse(manager.requestExists(id + 1));
         assertEq(ynToken.balanceOf(user), 90 ether);
         assertEq(ynToken.balanceOf(address(manager)), 10 ether);
 
@@ -129,6 +148,11 @@ contract WithdrawalRequestManagerTest is Test {
         manager.setMinimumAmountToLock(2 ether);
 
         assertEq(manager.minimumAmountToLock(), 2 ether);
+    }
+
+    function testConvertToAssets() public view {
+        assertEq(manager.convertToAssets(address(asset), 0), 0);
+        assertEq(manager.convertToAssets(address(asset), 10 ether), 10 ether);
     }
 
     function testPausePreventsRequestWithdrawal() public {
@@ -169,6 +193,26 @@ contract WithdrawalRequestManagerTest is Test {
 
         WithdrawalRequestManager.WithdrawalRequest memory request = manager.requests(id);
         assertEq(request.amountLocked, 6 ether);
+    }
+
+    function testFulfillWithdrawalRequestMaxWithdrawsMaxAssetsForLockedShares() public {
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether);
+
+        vm.expectEmit(true, true, true, true, address(manager));
+        emit WithdrawalRequestManager.WithdrawalRequestFulfilled(
+            id, user, address(ynToken), address(asset), 10 ether, 10 ether, 0
+        );
+
+        vm.prank(fulfiller);
+        (uint256 amountBurned, uint256 assetsWithdrawn) = manager.fulfillWithdrawalRequestMax(id, address(asset));
+
+        assertEq(amountBurned, 10 ether);
+        assertEq(assetsWithdrawn, 10 ether);
+        assertEq(asset.balanceOf(user), 10 ether);
+
+        WithdrawalRequestManager.WithdrawalRequest memory request = manager.requests(id);
+        assertEq(request.amountLocked, 0);
     }
 
     function testFulfillWithdrawalRequestUsesActualBalanceDeltaInsteadOfReturnValue() public {

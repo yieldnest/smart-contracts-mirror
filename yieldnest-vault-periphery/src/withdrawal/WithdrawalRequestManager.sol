@@ -6,19 +6,26 @@ import {
 } from "lib/openzeppelin-contracts-upgradeable/contracts/access/AccessControlUpgradeable.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IProvider} from "lib/yieldnest-vault/src/interface/IProvider.sol";
+import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 
 interface IWithdrawAssetVault is IERC20 {
     function withdrawAsset(address asset_, uint256 assets, address receiver, address owner)
         external
         returns (uint256 shares);
+    function totalBaseAssets() external view returns (uint256);
+    function provider() external view returns (address);
+    function getAsset(address asset_) external view returns (IVault.AssetParams memory);
 }
 
 /// @title WithdrawalRequestManager
 /// @notice Custodies one yn-token type and tracks permissioned fulfilment of withdrawal requests.
 contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
     string public constant VERSION = "0.1.0";
 
@@ -145,12 +152,40 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         onlyRole(FULFILLER_ROLE)
         returns (uint256 amountBurned)
     {
+        (amountBurned,) = _fulfillWithdrawalRequest(id, asset, assets);
+    }
+
+    /// @notice Fulfils as much of a request as possible for a given asset using the currently locked shares.
+    /// @param id Request id to fulfil.
+    /// @param asset Asset to withdraw from the yn-token.
+    /// @return amountBurned Amount of locked yn-token shares burned by the withdrawal.
+    /// @return assetsWithdrawn Amount of `asset` transferred to the request owner.
+    function fulfillWithdrawalRequestMax(uint256 id, address asset)
+        external
+        onlyRole(FULFILLER_ROLE)
+        returns (uint256 amountBurned, uint256 assetsWithdrawn)
+    {
         if (asset == address(0)) revert ZeroAddress();
-        if (assets == 0) revert ZeroAmount();
 
         WithdrawalRequestManagerStorage storage $ = _getWithdrawalRequestManagerStorage();
         WithdrawalRequest storage request = $.requests[id];
-        if (request.owner == address(0)) revert RequestNotFound(id);
+        if (!requestExists(id)) revert RequestNotFound(id);
+
+        uint256 assets = convertToAssets(asset, request.amountLocked);
+        (amountBurned, assetsWithdrawn) = _fulfillWithdrawalRequest(id, asset, assets);
+    }
+
+    function _fulfillWithdrawalRequest(uint256 id, address asset, uint256 assets)
+        internal
+        returns (uint256 amountBurned, uint256 assetsWithdrawn)
+    {
+        if (asset == address(0)) revert ZeroAddress();
+
+        WithdrawalRequestManagerStorage storage $ = _getWithdrawalRequestManagerStorage();
+        WithdrawalRequest storage request = $.requests[id];
+        if (!requestExists(id)) revert RequestNotFound(id);
+
+        if (assets == 0) revert ZeroAmount();
 
         uint256 tokenBalanceBefore = $.token.balanceOf(address(this));
         uint256 assetBalanceBefore = IERC20(asset).balanceOf(address(this));
@@ -172,7 +207,7 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
             revert InsufficientLockedAmount(id, request.amountLocked, amountBurned);
         }
 
-        uint256 assetsWithdrawn = assetBalanceAfter - assetBalanceBefore;
+        assetsWithdrawn = assetBalanceAfter - assetBalanceBefore;
         if (assetsWithdrawn != assets) revert UnexpectedAssetsWithdrawn(assets, assetsWithdrawn);
 
         request.amountLocked -= amountBurned;
@@ -183,22 +218,53 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         );
     }
 
-    // --- Getters ---
+    // --- Views ---
 
+    /// @notice Returns the configured yn-token handled by this manager.
+    /// @return The configured yn-token.
     function token() public view returns (IWithdrawAssetVault) {
         return _getWithdrawalRequestManagerStorage().token;
     }
 
+    /// @notice Returns the minimum yn-token share amount required to open a request.
+    /// @return The minimum amount to lock.
     function minimumAmountToLock() public view returns (uint256) {
         return _getWithdrawalRequestManagerStorage().minimumAmountToLock;
     }
 
+    /// @notice Returns the next withdrawal request id to be assigned.
+    /// @return The next request id.
     function nextRequestId() public view returns (uint256) {
         return _getWithdrawalRequestManagerStorage().nextRequestId;
     }
 
+    /// @notice Returns a withdrawal request by id.
+    /// @param id Request id to query.
+    /// @return The stored withdrawal request.
     function requests(uint256 id) public view returns (WithdrawalRequest memory) {
         return _getWithdrawalRequestManagerStorage().requests[id];
+    }
+
+    /// @notice Returns whether a withdrawal request exists.
+    /// @param id Request id to query.
+    /// @return True if the request exists.
+    function requestExists(uint256 id) public view returns (bool) {
+        return _getWithdrawalRequestManagerStorage().requests[id].owner != address(0);
+    }
+
+    /// @notice Converts yn-token shares into the maximum amount of a given asset withdrawable from the configured token.
+    /// @param asset Asset to convert into.
+    /// @param shares Amount of yn-token shares to convert.
+    /// @return assets Amount of `asset` represented by `shares`.
+    function convertToAssets(address asset, uint256 shares) public view returns (uint256 assets) {
+        IWithdrawAssetVault token_ = _getWithdrawalRequestManagerStorage().token;
+        uint256 totalSupply = token_.totalSupply();
+        uint256 totalBaseAssets = token_.totalBaseAssets();
+        uint256 baseAssets = shares.mulDiv(totalBaseAssets + 1, totalSupply + 1, Math.Rounding.Floor);
+
+        IVault.AssetParams memory assetParams = token_.getAsset(asset);
+        uint256 rate = IProvider(token_.provider()).getRate(asset);
+        assets = baseAssets.mulDiv(10 ** assetParams.decimals, rate, Math.Rounding.Floor);
     }
 
     // --- Pause ---

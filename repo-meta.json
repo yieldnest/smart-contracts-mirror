@@ -23,8 +23,8 @@
     "yieldnest-vault-periphery": {
       "url": "https://github.com/yieldnest/yieldnest-vault-periphery.git",
       "branch": "feature/withdraw-requester",
-      "commit": "a05d9cb88d018ce33c66ad826ce7477b955d63cc",
-      "commit_message": "Return withdrawal request struct from getter"
+      "commit": "03be5b880775ab23e330477db8cbe3fbd584cc6b",
+      "commit_message": "add test deploy"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
