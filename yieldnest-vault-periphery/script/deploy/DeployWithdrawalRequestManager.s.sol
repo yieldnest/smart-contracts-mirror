@@ -6,14 +6,20 @@ import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/E
 import {Strings} from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import {MainnetActors} from "lib/yieldnest-vault/script/Actors.sol";
 import {MainnetContracts as MC} from "lib/yieldnest-vault/script/Contracts.sol";
+import {Bag} from "src/withdrawal/Bag.sol";
+import {BaseBeaconMaker} from "src/withdrawal/BaseBeaconMaker.sol";
 import {WithdrawalRequestManager} from "src/withdrawal/WithdrawalRequestManager.sol";
 
 contract DeployWithdrawalRequestManager is Script {
     uint256 public constant MINIMUM_AMOUNT_TO_LOCK = 10 ether;
 
     MainnetActors public actors;
+    Bag public bagImplementation;
+    BaseBeaconMaker public beaconMakerImplementation;
+    BaseBeaconMaker public beaconMaker;
     WithdrawalRequestManager public implementation;
     WithdrawalRequestManager public withdrawalRequestManager;
+    ERC1967Proxy public beaconMakerProxy;
     ERC1967Proxy public proxy;
 
     address public deployer;
@@ -22,6 +28,7 @@ contract DeployWithdrawalRequestManager is Script {
     address public fulfiller;
     address public configurationManager;
     address public pauser;
+    address public predictedProxy;
 
     function run() public {
         actors = new MainnetActors();
@@ -35,15 +42,36 @@ contract DeployWithdrawalRequestManager is Script {
 
         vm.startBroadcast();
 
+        uint256 nonce = vm.getNonce(deployer);
+        predictedProxy = vm.computeCreateAddress(deployer, nonce + 4);
+
+        bagImplementation = new Bag();
+        beaconMakerImplementation = new BaseBeaconMaker();
+        beaconMakerProxy = new ERC1967Proxy(
+            address(beaconMakerImplementation),
+            abi.encodeCall(
+                BaseBeaconMaker.initialize, (address(bagImplementation), defaultAdmin, predictedProxy, defaultAdmin)
+            )
+        );
+        beaconMaker = BaseBeaconMaker(address(beaconMakerProxy));
         implementation = new WithdrawalRequestManager();
         proxy = new ERC1967Proxy(
             address(implementation),
             abi.encodeCall(
                 WithdrawalRequestManager.initialize,
-                (token, defaultAdmin, fulfiller, configurationManager, pauser, MINIMUM_AMOUNT_TO_LOCK)
+                (
+                    token,
+                    defaultAdmin,
+                    fulfiller,
+                    configurationManager,
+                    pauser,
+                    address(beaconMaker),
+                    MINIMUM_AMOUNT_TO_LOCK
+                )
             )
         );
         withdrawalRequestManager = WithdrawalRequestManager(address(proxy));
+        require(address(withdrawalRequestManager) == predictedProxy, "unexpected proxy address");
 
         vm.stopBroadcast();
 
@@ -60,7 +88,13 @@ contract DeployWithdrawalRequestManager is Script {
 
     function saveDeployment() internal {
         vm.serializeAddress(label(), "implementation", address(implementation));
+        vm.serializeAddress(label(), "bagImplementation", address(bagImplementation));
+        vm.serializeAddress(label(), "beaconMakerImplementation", address(beaconMakerImplementation));
+        vm.serializeAddress(label(), "beaconMaker", address(beaconMaker));
+        vm.serializeAddress(label(), "beaconMakerProxy", address(beaconMakerProxy));
+        vm.serializeAddress(label(), "beacon", beaconMaker.beacon());
         vm.serializeAddress(label(), "proxy", address(proxy));
+        vm.serializeAddress(label(), "predictedProxy", predictedProxy);
         vm.serializeAddress(label(), "withdrawalRequestManager", address(withdrawalRequestManager));
         vm.serializeAddress(label(), "token", token);
         vm.serializeUint(label(), "minimumAmountToLock", MINIMUM_AMOUNT_TO_LOCK);

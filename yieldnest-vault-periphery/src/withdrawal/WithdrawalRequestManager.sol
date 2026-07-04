@@ -11,6 +11,11 @@ import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contra
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IProvider} from "lib/yieldnest-vault/src/interface/IProvider.sol";
 import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
+import {Bag} from "src/withdrawal/Bag.sol";
+
+interface IBeaconMaker {
+    function create(bytes calldata initData) external returns (address proxy);
+}
 
 interface IWithdrawAssetVault is IERC20 {
     function withdrawAsset(address asset_, uint256 assets, address receiver, address owner)
@@ -19,6 +24,7 @@ interface IWithdrawAssetVault is IERC20 {
     function totalBaseAssets() external view returns (uint256);
     function provider() external view returns (address);
     function getAsset(address asset_) external view returns (IVault.AssetParams memory);
+    function processAccounting() external;
 }
 
 /// @title WithdrawalRequestManager
@@ -31,12 +37,14 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
 
     struct WithdrawalRequest {
         address owner;
+        address bag;
         uint256 amountLocked;
     }
 
     /// @custom:storage-location erc7201:yieldnest.storage.withdrawal_request_manager
     struct WithdrawalRequestManagerStorage {
         IWithdrawAssetVault token;
+        IBeaconMaker beaconMaker;
         uint256 minimumAmountToLock;
         uint256 nextRequestId;
         mapping(uint256 id => WithdrawalRequest request) requests;
@@ -51,7 +59,9 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
     error InvalidAssetBalanceChange(uint256 balanceBefore, uint256 balanceAfter);
     error UnexpectedAssetsWithdrawn(uint256 expectedAssets, uint256 actualAssets);
 
-    event WithdrawalRequested(uint256 indexed id, address indexed owner, address indexed token, uint256 amountLocked);
+    event WithdrawalRequested(
+        uint256 indexed id, address indexed owner, address indexed token, address bag, uint256 amountLocked
+    );
     event WithdrawalRequestFulfilled(
         uint256 indexed id,
         address indexed owner,
@@ -88,11 +98,12 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         address fulfiller,
         address configurationManager,
         address pauser,
+        address beaconMaker_,
         uint256 minimumAmountToLock_
     ) external initializer {
         if (
             token_ == address(0) || defaultAdmin == address(0) || fulfiller == address(0)
-                || configurationManager == address(0) || pauser == address(0)
+                || configurationManager == address(0) || pauser == address(0) || beaconMaker_ == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -102,6 +113,7 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
 
         WithdrawalRequestManagerStorage storage $ = _getWithdrawalRequestManagerStorage();
         $.token = IWithdrawAssetVault(token_);
+        $.beaconMaker = IBeaconMaker(beaconMaker_);
         $.minimumAmountToLock = minimumAmountToLock_;
         $.nextRequestId = 1;
 
@@ -133,11 +145,12 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         if (amount < $.minimumAmountToLock) revert AmountBelowMinimum(amount, $.minimumAmountToLock);
 
         id = $.nextRequestId++;
-        $.requests[id] = WithdrawalRequest({owner: msg.sender, amountLocked: amount});
+        address bag = $.beaconMaker.create(abi.encodeCall(Bag.initialize, (msg.sender)));
+        $.requests[id] = WithdrawalRequest({owner: msg.sender, bag: bag, amountLocked: amount});
 
         IERC20(address($.token)).safeTransferFrom(msg.sender, address(this), amount);
 
-        emit WithdrawalRequested(id, msg.sender, address($.token), amount);
+        emit WithdrawalRequested(id, msg.sender, address($.token), bag, amount);
     }
 
     // --- Fulfillment ---
@@ -145,7 +158,7 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
     /// @notice Fulfils part or all of a request by withdrawing an asset from the configured yn-token.
     /// @param id Request id to fulfil.
     /// @param asset Asset to withdraw from the yn-token.
-    /// @param assets Amount of `asset` to withdraw to this contract.
+    /// @param assets Amount of `asset` to withdraw to the request bag.
     /// @return amountBurned Amount of locked yn-token shares burned by the withdrawal.
     function fulfillWithdrawalRequest(uint256 id, address asset, uint256 assets)
         external
@@ -156,10 +169,11 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
     }
 
     /// @notice Fulfils as much of a request as possible for a given asset using the currently locked shares.
+    /// @dev Requests store only shares, and the fulfiller chooses the withdrawal asset at fulfilment.
     /// @param id Request id to fulfil.
     /// @param asset Asset to withdraw from the yn-token.
     /// @return amountBurned Amount of locked yn-token shares burned by the withdrawal.
-    /// @return assetsWithdrawn Amount of `asset` transferred to the request owner.
+    /// @return assetsWithdrawn Amount of `asset` transferred to the request bag.
     function fulfillWithdrawalRequestMax(uint256 id, address asset)
         external
         onlyRole(FULFILLER_ROLE)
@@ -171,6 +185,11 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         WithdrawalRequest storage request = $.requests[id];
         if (!requestExists(id)) revert RequestNotFound(id);
 
+        // Asset pricing depends on provider/oracle rates, which may be stale or incorrect. If an asset is
+        // underpriced, requesters can receive more real value than the burned shares represent, diluting
+        // remaining depositors. Inventory limits and operator diligence mitigate, but do not remove, this risk.
+        // Assumes asset withdrawals from the configured yn-token are feeless.
+        // Rounds down so max fulfilment does not intentionally request assets requiring more shares than are locked.
         uint256 assets = convertToAssets(asset, request.amountLocked);
         (amountBurned, assetsWithdrawn) = _fulfillWithdrawalRequest(id, asset, assets);
     }
@@ -187,17 +206,18 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
 
         if (assets == 0) revert ZeroAmount();
 
+        address bag = request.bag;
         uint256 tokenBalanceBefore = $.token.balanceOf(address(this));
-        uint256 assetBalanceBefore = IERC20(asset).balanceOf(address(this));
+        uint256 assetBalanceBefore = IERC20(asset).balanceOf(bag);
 
-        $.token.withdrawAsset(asset, assets, address(this), address(this));
+        $.token.withdrawAsset(asset, assets, bag, address(this));
 
         uint256 tokenBalanceAfter = $.token.balanceOf(address(this));
         if (tokenBalanceAfter > tokenBalanceBefore) {
             revert InvalidTokenBalanceChange(tokenBalanceBefore, tokenBalanceAfter);
         }
 
-        uint256 assetBalanceAfter = IERC20(asset).balanceOf(address(this));
+        uint256 assetBalanceAfter = IERC20(asset).balanceOf(bag);
         if (assetBalanceAfter < assetBalanceBefore) {
             revert InvalidAssetBalanceChange(assetBalanceBefore, assetBalanceAfter);
         }
@@ -211,7 +231,8 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
         if (assetsWithdrawn != assets) revert UnexpectedAssetsWithdrawn(assets, assetsWithdrawn);
 
         request.amountLocked -= amountBurned;
-        IERC20(asset).safeTransfer(request.owner, assetsWithdrawn);
+
+        $.token.processAccounting();
 
         emit WithdrawalRequestFulfilled(
             id, request.owner, address($.token), asset, assetsWithdrawn, amountBurned, request.amountLocked
@@ -224,6 +245,12 @@ contract WithdrawalRequestManager is Initializable, AccessControlUpgradeable, Pa
     /// @return The configured yn-token.
     function token() public view returns (IWithdrawAssetVault) {
         return _getWithdrawalRequestManagerStorage().token;
+    }
+
+    /// @notice Returns the beacon maker used to create request bags.
+    /// @return The beacon maker contract.
+    function beaconMaker() public view returns (IBeaconMaker) {
+        return _getWithdrawalRequestManagerStorage().beaconMaker;
     }
 
     /// @notice Returns the minimum yn-token share amount required to open a request.

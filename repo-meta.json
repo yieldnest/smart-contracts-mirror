@@ -23,8 +23,8 @@
     "yieldnest-vault-periphery": {
       "url": "https://github.com/yieldnest/yieldnest-vault-periphery.git",
       "branch": "feature/withdraw-requester",
-      "commit": "03be5b880775ab23e330477db8cbe3fbd584cc6b",
-      "commit_message": "add test deploy"
+      "commit": "b6864fd2693e68d7d610add5758fd97ea3400d94",
+      "commit_message": "Make beacon maker upgradeable"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
