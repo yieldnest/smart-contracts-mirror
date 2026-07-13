@@ -10,22 +10,23 @@ import {
     ERC721EnumerableUpgradeable
 } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import {ERC721Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IBag} from "src/interface/IBag.sol";
-import {IBeaconProxyFactory} from "src/interface/IBeaconProxyFactory.sol";
 import {IAuth} from "src/interface/IAuth.sol";
+import {IProxyFactory} from "src/interface/IProxyFactory.sol";
 
-interface IWithdrawAssetVault is IERC20 {
+interface IWithdrawAssetVault is IERC20Metadata {
     function withdrawAsset(address asset_, uint256 assets, address receiver, address owner)
         external
         returns (uint256 shares);
-    function processAccounting() external;
+    function convertToAssets(uint256 shares) external view returns (uint256 assets);
 }
 
 /// @title WithdrawalRequest
-/// @notice Custodies one yn-token type and tracks permissioned fulfilment of withdrawal requests.
+/// @notice Custodies one yn-token type and tracks permissioned resolution of withdrawal requests.
 contract WithdrawalRequest is
     Initializable,
     AccessControlUpgradeable,
@@ -41,14 +42,16 @@ contract WithdrawalRequest is
         address bag;
         uint256 amountLocked;
         address[] assetsRedeemed;
+        uint256 rateAtRequest;
     }
 
     /// @custom:storage-location erc7201:yieldnest.storage.withdrawal_request_manager
     struct RequestStorage {
         IWithdrawAssetVault token;
-        IBeaconProxyFactory beaconFactory;
+        IProxyFactory proxyFactory;
         uint256 minWithdrawalAmount;
         uint256 nextRequestId;
+        address feeWallet;
         mapping(uint256 id => Request request) requests;
     }
 
@@ -64,18 +67,20 @@ contract WithdrawalRequest is
     event WithdrawalRequested(
         uint256 indexed id, address indexed owner, address indexed token, address bag, uint256 amountLocked
     );
-    event WithdrawalRequestFulfilled(
+    event WithdrawalRequestResolved(
         uint256 indexed id,
         address indexed owner,
         address indexed token,
         address asset,
         uint256 assetsWithdrawn,
+        uint256 feeShares,
         uint256 amountBurned,
         uint256 amountLocked
     );
     event MinWithdrawalAmountUpdated(uint256 oldMinWithdrawalAmount, uint256 newMinWithdrawalAmount);
+    event FeeWalletUpdated(address oldFeeWallet, address newFeeWallet);
 
-    bytes32 public constant FULFILLER_ROLE = keccak256("FULFILLER_ROLE");
+    bytes32 public constant RESOLVER_ROLE = keccak256("RESOLVER_ROLE");
     bytes32 public constant CONFIGURATION_MANAGER_ROLE = keccak256("CONFIGURATION_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -97,15 +102,17 @@ contract WithdrawalRequest is
     function initialize(
         address token_,
         address defaultAdmin,
-        address fulfiller,
+        address resolver,
         address configurationManager,
         address pauser,
-        address beaconFactory_,
-        uint256 minWithdrawalAmount_
+        address proxyFactory_,
+        uint256 minWithdrawalAmount_,
+        address feeWallet_
     ) external initializer {
         if (
-            token_ == address(0) || defaultAdmin == address(0) || fulfiller == address(0)
-                || configurationManager == address(0) || pauser == address(0) || beaconFactory_ == address(0)
+            token_ == address(0) || defaultAdmin == address(0) || resolver == address(0)
+                || configurationManager == address(0) || pauser == address(0) || proxyFactory_ == address(0)
+                || feeWallet_ == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -117,11 +124,12 @@ contract WithdrawalRequest is
 
         RequestStorage storage $ = _getRequestStorage();
         $.token = IWithdrawAssetVault(token_);
-        $.beaconFactory = IBeaconProxyFactory(beaconFactory_);
+        $.proxyFactory = IProxyFactory(proxyFactory_);
         $.minWithdrawalAmount = minWithdrawalAmount_;
+        $.feeWallet = feeWallet_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        _grantRole(FULFILLER_ROLE, fulfiller);
+        _grantRole(RESOLVER_ROLE, resolver);
         _grantRole(CONFIGURATION_MANAGER_ROLE, configurationManager);
         _grantRole(PAUSER_ROLE, pauser);
     }
@@ -134,6 +142,16 @@ contract WithdrawalRequest is
         $.minWithdrawalAmount = minWithdrawalAmount_;
 
         emit MinWithdrawalAmountUpdated(oldMinWithdrawalAmount, minWithdrawalAmount_);
+    }
+
+    function setFeeWallet(address feeWallet_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
+        if (feeWallet_ == address(0)) revert ZeroAddress();
+
+        RequestStorage storage $ = _getRequestStorage();
+        address oldFeeWallet = $.feeWallet;
+        $.feeWallet = feeWallet_;
+
+        emit FeeWalletUpdated(oldFeeWallet, feeWallet_);
     }
 
     // --- Requests ---
@@ -150,34 +168,37 @@ contract WithdrawalRequest is
         if (amount < $.minWithdrawalAmount) revert AmountBelowMinimum(amount, $.minWithdrawalAmount);
 
         IERC20(address($.token)).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 rateAtRequest = $.token.convertToAssets(10 ** $.token.decimals());
 
         id = $.nextRequestId++;
-        address bag = $.beaconFactory.create(abi.encodeCall(IBag.initialize, (address(this), id)));
+        address bag = $.proxyFactory.create(abi.encodeCall(IBag.initialize, (address(this), id)));
         $.requests[id].bag = bag;
         $.requests[id].amountLocked = amount;
+        $.requests[id].rateAtRequest = rateAtRequest;
         _mint(receiver, id);
 
         emit WithdrawalRequested(id, receiver, address($.token), bag, amount);
     }
 
-    // --- Fulfillment ---
+    // --- Resolution ---
 
-    /// @notice Fulfils part or all of a request by withdrawing an asset from the configured yn-token.
-    /// @param id Request id to fulfil.
+    /// @notice Resolves part or all of a request and sends a flat yn-token share fee to the fee wallet.
+    /// @param id Request id to resolve.
     /// @param asset Asset to withdraw from the yn-token.
-    /// @param assets Amount of `asset` to withdraw to the request bag.
+    /// @param assets Amount of `asset` to leave in the request bag.
+    /// @param feeShares Amount of locked yn-token shares to send to the configured fee wallet.
     /// @return amountBurned Amount of locked yn-token shares burned by the withdrawal.
-    function fulfillWithdrawalRequest(uint256 id, address asset, uint256 assets)
+    function resolveWithdrawalRequest(uint256 id, address asset, uint256 assets, uint256 feeShares)
         external
-        onlyRole(FULFILLER_ROLE)
+        onlyRole(RESOLVER_ROLE)
         returns (uint256 amountBurned)
     {
-        (amountBurned,) = _fulfillWithdrawalRequest(id, asset, assets);
+        (amountBurned,) = _resolveWithdrawalRequest(id, asset, assets, feeShares);
     }
 
-    function _fulfillWithdrawalRequest(uint256 id, address asset, uint256 assets)
+    function _resolveWithdrawalRequest(uint256 id, address asset, uint256 assets, uint256 feeShares)
         internal
-        returns (uint256 amountBurned, uint256 assetsWithdrawn)
+        returns (uint256 tokenAmountBurned, uint256 assetsWithdrawn)
     {
         if (asset == address(0)) revert ZeroAddress();
 
@@ -188,37 +209,46 @@ contract WithdrawalRequest is
         if (assets == 0) revert ZeroAmount();
 
         address bag = request.bag;
+        if (feeShares != 0) {
+            if (feeShares > request.amountLocked) {
+                revert InsufficientLockedAmount(id, request.amountLocked, feeShares);
+            }
+            IERC20(address($.token)).safeTransfer($.feeWallet, feeShares);
+            request.amountLocked -= feeShares;
+        }
+
         uint256 tokenBalanceBefore = $.token.balanceOf(address(this));
-        uint256 assetBalanceBefore = IERC20(asset).balanceOf(bag);
+        uint256 bagAssetBalanceBefore = IERC20(asset).balanceOf(bag);
 
-        $.token.withdrawAsset(asset, assets, bag, address(this));
+        tokenAmountBurned = $.token.withdrawAsset(asset, assets, bag, address(this));
 
-        uint256 tokenBalanceAfter = $.token.balanceOf(address(this));
-        if (tokenBalanceAfter > tokenBalanceBefore) {
-            revert InvalidTokenBalanceChange(tokenBalanceBefore, tokenBalanceAfter);
+        {
+            uint256 tokenBalanceAfter = $.token.balanceOf(address(this));
+            if (tokenBalanceBefore - tokenBalanceAfter != tokenAmountBurned) {
+                revert InvalidTokenBalanceChange(tokenBalanceBefore, tokenBalanceAfter);
+            }
         }
 
-        uint256 assetBalanceAfter = IERC20(asset).balanceOf(bag);
-        if (assetBalanceAfter < assetBalanceBefore) {
-            revert InvalidAssetBalanceChange(assetBalanceBefore, assetBalanceAfter);
+        if (tokenAmountBurned > request.amountLocked) {
+            revert InsufficientLockedAmount(id, request.amountLocked, tokenAmountBurned);
         }
 
-        amountBurned = tokenBalanceBefore - tokenBalanceAfter;
-        if (amountBurned > request.amountLocked) {
-            revert InsufficientLockedAmount(id, request.amountLocked, amountBurned);
-        }
-
-        assetsWithdrawn = assetBalanceAfter - assetBalanceBefore;
+        assetsWithdrawn = IERC20(asset).balanceOf(bag) - bagAssetBalanceBefore;
         if (assetsWithdrawn != assets) revert UnexpectedAssetsWithdrawn(assets, assetsWithdrawn);
 
         _recordAssetRedeemed(request, asset);
 
-        request.amountLocked -= amountBurned;
+        request.amountLocked -= tokenAmountBurned;
 
-        $.token.processAccounting();
-
-        emit WithdrawalRequestFulfilled(
-            id, ownerOf(id), address($.token), asset, assetsWithdrawn, amountBurned, request.amountLocked
+        emit WithdrawalRequestResolved(
+            id,
+            ownerOf(id),
+            address($.token),
+            asset,
+            assetsWithdrawn,
+            feeShares,
+            tokenAmountBurned,
+            request.amountLocked
         );
     }
 
@@ -230,6 +260,16 @@ contract WithdrawalRequest is
         request.assetsRedeemed.push(asset);
     }
 
+    // --- Pause ---
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
     // --- Views ---
 
     /// @notice Returns the configured yn-token handled by this withdrawal request contract.
@@ -238,16 +278,22 @@ contract WithdrawalRequest is
         return _getRequestStorage().token;
     }
 
-    /// @notice Returns the beacon factory used to create request bags.
-    /// @return The beacon factory contract.
-    function beaconFactory() public view returns (IBeaconProxyFactory) {
-        return _getRequestStorage().beaconFactory;
+    /// @notice Returns the factory used to create request bags.
+    /// @return The factory contract.
+    function proxyFactory() public view returns (IProxyFactory) {
+        return _getRequestStorage().proxyFactory;
     }
 
     /// @notice Returns the minimum yn-token share amount required to open a request.
     /// @return The minimum amount to lock.
     function minWithdrawalAmount() public view returns (uint256) {
         return _getRequestStorage().minWithdrawalAmount;
+    }
+
+    /// @notice Returns the wallet that receives resolution fees.
+    /// @return The configured fee wallet.
+    function feeWallet() public view returns (address) {
+        return _getRequestStorage().feeWallet;
     }
 
     /// @notice Returns the next withdrawal request id to be assigned.
@@ -297,15 +343,5 @@ contract WithdrawalRequest is
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
-    }
-
-    // --- Pause ---
-
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    function unpause() external onlyRole(PAUSER_ROLE) {
-        _unpause();
     }
 }

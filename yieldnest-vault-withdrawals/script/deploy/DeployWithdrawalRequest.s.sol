@@ -15,19 +15,20 @@ contract DeployWithdrawalRequest is BaseScript {
     uint256 public constant MIN_WITHDRAWAL_AMOUNT = 10 ether;
 
     Bag public bagImplementation;
-    BeaconProxyFactory public beaconFactoryImplementation;
-    BeaconProxyFactory public beaconFactory;
+    BeaconProxyFactory public proxyFactoryImplementation;
+    BeaconProxyFactory public proxyFactory;
     WithdrawalRequest public requestImplementation;
     WithdrawalRequest public withdrawalRequest;
     WithdrawalRequestViewer public withdrawalRequestViewer;
-    ERC1967Proxy public beaconFactoryProxy;
+    ERC1967Proxy public proxyFactoryProxy;
     ERC1967Proxy public proxy;
 
     address public token;
     address public defaultAdmin;
-    address public fulfiller;
+    address public resolver;
     address public configurationManager;
     address public pauser;
+    address public feeWallet;
     address public proposer;
     address public executor;
     address public predictedProxy;
@@ -52,14 +53,14 @@ contract DeployWithdrawalRequest is BaseScript {
         configurationManager = address(timelock);
 
         bagImplementation = new Bag();
-        beaconFactoryImplementation = new BeaconProxyFactory();
-        beaconFactoryProxy = new ERC1967Proxy(
-            address(beaconFactoryImplementation),
+        proxyFactoryImplementation = new BeaconProxyFactory();
+        proxyFactoryProxy = new ERC1967Proxy(
+            address(proxyFactoryImplementation),
             abi.encodeCall(
                 BeaconProxyFactory.initialize, (address(bagImplementation), defaultAdmin, predictedProxy, defaultAdmin)
             )
         );
-        beaconFactory = BeaconProxyFactory(address(beaconFactoryProxy));
+        proxyFactory = BeaconProxyFactory(address(proxyFactoryProxy));
         requestImplementation = new WithdrawalRequest();
         proxy = new ERC1967Proxy(
             address(requestImplementation),
@@ -68,11 +69,12 @@ contract DeployWithdrawalRequest is BaseScript {
                 (
                     token,
                     defaultAdmin,
-                    fulfiller,
+                    resolver,
                     configurationManager,
                     pauser,
-                    address(beaconFactory),
-                    MIN_WITHDRAWAL_AMOUNT
+                    address(proxyFactory),
+                    MIN_WITHDRAWAL_AMOUNT,
+                    feeWallet
                 )
             )
         );
@@ -91,16 +93,18 @@ contract DeployWithdrawalRequest is BaseScript {
         token = MC.YNETHX;
         proposer = actors.ADMIN();
         executor = actors.ADMIN();
-        fulfiller = actors.ADMIN();
+        resolver = actors.ADMIN();
         pauser = actors.PAUSER();
+        feeWallet = actors.ADMIN();
     }
 
     function _verifyDeploymentParams() internal view virtual {
         if (token == address(0)) revert InvalidSetup();
         if (proposer == address(0)) revert InvalidSetup();
         if (executor == address(0)) revert InvalidSetup();
-        if (fulfiller == address(0)) revert InvalidSetup();
+        if (resolver == address(0)) revert InvalidSetup();
         if (pauser == address(0)) revert InvalidSetup();
+        if (feeWallet == address(0)) revert InvalidSetup();
     }
 
     function _deployTimelockController() internal virtual {
@@ -125,8 +129,12 @@ contract DeployWithdrawalRequest is BaseScript {
         if (!withdrawalRequest.hasRole(withdrawalRequest.CONFIGURATION_MANAGER_ROLE(), address(timelock))) {
             revert InvalidSetup();
         }
-        if (!beaconFactory.hasRole(beaconFactory.DEFAULT_ADMIN_ROLE(), address(timelock))) revert InvalidSetup();
-        if (!beaconFactory.hasRole(beaconFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock))) {
+        if (!withdrawalRequest.hasRole(withdrawalRequest.RESOLVER_ROLE(), resolver)) {
+            revert InvalidSetup();
+        }
+        if (withdrawalRequest.feeWallet() != feeWallet) revert InvalidSetup();
+        if (!proxyFactory.hasRole(proxyFactory.DEFAULT_ADMIN_ROLE(), address(timelock))) revert InvalidSetup();
+        if (!proxyFactory.hasRole(proxyFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock))) {
             revert InvalidSetup();
         }
     }
@@ -143,10 +151,10 @@ contract DeployWithdrawalRequest is BaseScript {
         vm.serializeAddress(symbol(), "implementation", address(requestImplementation));
         vm.serializeAddress(symbol(), "timelock", address(timelock));
         vm.serializeAddress(symbol(), "bagImplementation", address(bagImplementation));
-        vm.serializeAddress(symbol(), "beaconFactoryImplementation", address(beaconFactoryImplementation));
-        vm.serializeAddress(symbol(), "beaconFactory", address(beaconFactory));
-        vm.serializeAddress(symbol(), "beaconFactoryProxy", address(beaconFactoryProxy));
-        vm.serializeAddress(symbol(), "beacon", beaconFactory.beacon());
+        vm.serializeAddress(symbol(), "proxyFactoryImplementation", address(proxyFactoryImplementation));
+        vm.serializeAddress(symbol(), "proxyFactory", address(proxyFactory));
+        vm.serializeAddress(symbol(), "proxyFactoryProxy", address(proxyFactoryProxy));
+        vm.serializeAddress(symbol(), "beacon", proxyFactory.beacon());
         vm.serializeAddress(symbol(), "proxy", address(proxy));
         vm.serializeAddress(symbol(), "predictedProxy", predictedProxy);
         vm.serializeAddress(symbol(), "withdrawalRequest", address(withdrawalRequest));
@@ -155,7 +163,8 @@ contract DeployWithdrawalRequest is BaseScript {
         vm.serializeUint(symbol(), "minWithdrawalAmount", MIN_WITHDRAWAL_AMOUNT);
         vm.serializeUint(symbol(), "timelockMinDelay", minDelay);
         vm.serializeAddress(symbol(), "defaultAdmin", defaultAdmin);
-        vm.serializeAddress(symbol(), "fulfiller", fulfiller);
+        vm.serializeAddress(symbol(), "resolver", resolver);
+        vm.serializeAddress(symbol(), "feeWallet", feeWallet);
         vm.serializeAddress(symbol(), "configurationManager", configurationManager);
         vm.serializeAddress(symbol(), "pauser", pauser);
         vm.serializeAddress(symbol(), "proposer", proposer);

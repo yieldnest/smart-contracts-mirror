@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "bf42b6017ee4e33b8c0330151fdbe843781bc003",
-      "commit_message": "Refactor claimed request check"
+      "commit": "8d2f161290fd586d11f8973f645ee1272620bedb",
+      "commit_message": "Extract base resolver"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

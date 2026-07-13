@@ -17,7 +17,7 @@ contract DeployWithdrawalRequestTest is Test {
         WithdrawalRequestViewer viewer = deployScript.withdrawalRequestViewer();
         TimelockController timelock = deployScript.timelock();
         WithdrawalRequest manager = deployScript.withdrawalRequest();
-        BeaconProxyFactory beaconFactory = deployScript.beaconFactory();
+        BeaconProxyFactory proxyFactory = deployScript.proxyFactory();
         assertGt(address(viewer).code.length, 0);
         assertGt(address(timelock).code.length, 0);
         assertEq(timelock.getMinDelay(), deployScript.minDelay());
@@ -28,8 +28,10 @@ contract DeployWithdrawalRequestTest is Test {
         assertTrue(timelock.hasRole(timelock.EXECUTOR_ROLE(), deployScript.executor()));
         assertTrue(manager.hasRole(manager.DEFAULT_ADMIN_ROLE(), address(timelock)));
         assertTrue(manager.hasRole(manager.CONFIGURATION_MANAGER_ROLE(), address(timelock)));
-        assertTrue(beaconFactory.hasRole(beaconFactory.DEFAULT_ADMIN_ROLE(), address(timelock)));
-        assertTrue(beaconFactory.hasRole(beaconFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock)));
+        assertTrue(manager.hasRole(manager.RESOLVER_ROLE(), deployScript.resolver()));
+        assertEq(manager.feeWallet(), deployScript.feeWallet());
+        assertTrue(proxyFactory.hasRole(proxyFactory.DEFAULT_ADMIN_ROLE(), address(timelock)));
+        assertTrue(proxyFactory.hasRole(proxyFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock)));
 
         string memory deploymentFilePath =
             string.concat(vm.projectRoot(), "/deployments/", deployScript.label(), ".json");
@@ -39,6 +41,8 @@ contract DeployWithdrawalRequestTest is Test {
         assertEq(vm.parseJsonAddress(deploymentJson, ".viewer"), address(viewer));
         assertEq(vm.parseJsonAddress(deploymentJson, ".withdrawalRequest"), address(manager));
         assertEq(vm.parseJsonAddress(deploymentJson, ".defaultAdmin"), address(timelock));
+        assertEq(vm.parseJsonAddress(deploymentJson, ".resolver"), deployScript.resolver());
+        assertEq(vm.parseJsonAddress(deploymentJson, ".feeWallet"), deployScript.feeWallet());
         assertEq(vm.parseJsonAddress(deploymentJson, ".configurationManager"), address(timelock));
         assertEq(vm.parseJsonUint(deploymentJson, ".minWithdrawalAmount"), deployScript.MIN_WITHDRAWAL_AMOUNT());
         assertEq(vm.parseJsonUint(deploymentJson, ".timelockMinDelay"), deployScript.minDelay());

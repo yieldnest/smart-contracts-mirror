@@ -30,6 +30,7 @@ contract WithdrawalRequestViewer {
         address bag;
         address token;
         uint256 amountLocked;
+        uint256 rateAtRequest;
         uint256 tokenBalance;
         bool isClaimable;
         bool isClaimed;
@@ -78,6 +79,7 @@ contract WithdrawalRequestViewer {
             bag: request.bag,
             token: address(token),
             amountLocked: request.amountLocked,
+            rateAtRequest: request.rateAtRequest,
             tokenBalance: token.balanceOf(address(withdrawalRequest)),
             isClaimable: isClaimable,
             isClaimed: _requestIsClaimed(request, token),
@@ -87,7 +89,7 @@ contract WithdrawalRequestViewer {
 
     /// @notice Returns true when the remaining locked yn-token amount is below the dust threshold.
     /// @dev UI-only heuristic: this indicates that most of the position has been withdrawn.
-    /// It works well for ETH and USDC-style assets where fulfillment can leave a trace
+    /// It works well for ETH and USDC-style assets where resolution can leave a trace
     /// amount of locked yn-token behind. It is not a protocol-level claimability invariant.
     function requestIsClaimable(WithdrawalRequest withdrawalRequest, uint256 id) external view returns (bool) {
         if (!withdrawalRequest.requestExists(id)) return false;
@@ -145,8 +147,8 @@ contract WithdrawalRequestViewer {
         assets = baseAssets.mulDiv(10 ** assetParams.decimals, rate, Math.Rounding.Floor);
     }
 
-    /// @notice Returns the asset amount a caller can pass to `fulfillWithdrawalRequest` for the request's locked shares.
-    function maxFulfillmentAssets(WithdrawalRequest withdrawalRequest, uint256 id, address asset)
+    /// @notice Returns the asset amount a caller can pass to `resolveWithdrawalRequest` for the request's locked shares.
+    function maxResolutionAssets(WithdrawalRequest withdrawalRequest, uint256 id, address asset)
         external
         view
         returns (uint256 assets)
