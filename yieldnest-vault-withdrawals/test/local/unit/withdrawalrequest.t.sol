@@ -6,22 +6,18 @@ import {IAccessControl} from "lib/openzeppelin-contracts/contracts/access/IAcces
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC721Enumerable} from "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
-import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {IBag} from "src/interface/IBag.sol";
-import {IResolver} from "src/interface/IResolver.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
-import {FixedRateResolver} from "src/resolvers/FixedRateResolver.sol";
-import {NoOpResolver} from "src/resolvers/NoOpResolver.sol";
+import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {RequestRateResolver} from "test/mocks/RequestRateResolver.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
+import {FixedRateWithdrawer} from "src/withdrawers/FixedRateWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract MockWithdrawAssetVault is ERC20 {
-    using Math for uint256;
-
     uint256 public burnMultiplier = 1;
     uint256 public returnAmountOffset;
     uint256 public transferShortfall;
@@ -61,7 +57,7 @@ contract MockWithdrawAssetVault is ERC20 {
         external
         returns (uint256 shares)
     {
-        shares = assets.mulDiv(burnMultiplier * 1 ether, convertToAssetsRate, Math.Rounding.Ceil);
+        shares = assets * burnMultiplier;
         _burn(owner, shares);
         ERC20(asset_).transfer(receiver, assets - transferShortfall);
 
@@ -82,6 +78,10 @@ contract MockWithdrawAssetVault is ERC20 {
 
     function getAssets() external view returns (address[] memory) {
         return assetList;
+    }
+
+    function asset() external view returns (address) {
+        return assetList[0];
     }
 
     function getRate(address) external pure returns (uint256) {
@@ -109,17 +109,19 @@ contract WithdrawalRequestTest is Test {
     WithdrawalAssetMock asset;
     WithdrawalAssetMock secondAsset;
     WithdrawalRequestViewer viewer;
+    BaseWithdrawer withdrawer;
+    MinAmountRequestPolicy requestPolicy;
     Bag bagImplementation;
-    BeaconProxyFactory proxyFactoryImplementation;
-    BeaconProxyFactory proxyFactory;
+    BeaconProxyFactory bagFactoryImplementation;
+    BeaconProxyFactory bagFactory;
 
     address admin = address(0xA11CE);
     address resolver = address(0xF0111);
     address configurationManager = address(0xC0F16);
     address pauser = address(0xAA05E);
-    address feeWallet = address(0xFEE);
     address user = address(0xB0B);
     address receiver = address(0xCA11);
+    address collector = address(0xC011EC7);
     uint256 minWithdrawalAmount = 1 ether;
 
     function setUp() public {
@@ -128,14 +130,17 @@ contract WithdrawalRequestTest is Test {
         secondAsset = new WithdrawalAssetMock();
         viewer = new WithdrawalRequestViewer();
         bagImplementation = new Bag();
-        proxyFactoryImplementation = new BeaconProxyFactory();
-        ERC1967Proxy proxyFactoryProxy = new ERC1967Proxy(
-            address(proxyFactoryImplementation),
+        bagFactoryImplementation = new BeaconProxyFactory();
+        ERC1967Proxy bagFactoryProxy = new ERC1967Proxy(
+            address(bagFactoryImplementation),
             abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), admin, admin, admin))
         );
-        proxyFactory = BeaconProxyFactory(address(proxyFactoryProxy));
+        bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
 
         WithdrawalRequest implementation = new WithdrawalRequest();
+        address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        withdrawer = new BaseWithdrawer(address(ynToken), predictedManager);
+        requestPolicy = new MinAmountRequestPolicy(minWithdrawalAmount);
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(implementation),
             abi.encodeCall(
@@ -146,16 +151,16 @@ contract WithdrawalRequestTest is Test {
                     resolver,
                     configurationManager,
                     pauser,
-                    address(proxyFactory),
-                    minWithdrawalAmount,
-                    feeWallet
+                    address(bagFactory),
+                    address(withdrawer),
+                    address(requestPolicy)
                 )
             )
         );
         manager = WithdrawalRequest(address(proxy));
-        bytes32 creatorRole = proxyFactory.CREATOR_ROLE();
+        bytes32 creatorRole = bagFactory.CREATOR_ROLE();
         vm.prank(admin);
-        proxyFactory.grantRole(creatorRole, address(manager));
+        bagFactory.grantRole(creatorRole, address(manager));
 
         ynToken.mint(user, 100 ether);
         asset.mint(address(ynToken), 100 ether);
@@ -202,7 +207,7 @@ contract WithdrawalRequestTest is Test {
 
         assertEq(id, 0);
         assertEq(manager.nextRequestId(), 1);
-        assertEq(address(manager.proxyFactory()), address(proxyFactory));
+        assertEq(address(manager.bagFactory()), address(bagFactory));
         assertTrue(manager.requestExists(id));
         assertFalse(manager.requestExists(id + 1));
         assertEq(ynToken.balanceOf(user), 90 ether);
@@ -213,7 +218,9 @@ contract WithdrawalRequestTest is Test {
         assertEq(manager.ownerOf(id), user);
         assertEq(manager.name(), "MAX Vault Withdrawal Request");
         assertEq(manager.symbol(), "ynWREQ");
-        assertEq(manager.feeWallet(), feeWallet);
+        assertEq(address(manager.withdrawer()), address(withdrawer));
+        assertEq(address(manager.requestPolicy()), address(requestPolicy));
+        assertEq(ynToken.allowance(address(manager), address(withdrawer)), type(uint256).max);
         assertTrue(manager.supportsInterface(type(IERC721Enumerable).interfaceId));
         assertEq(IBag(request.bag).ownerRegistry(), address(manager));
         assertEq(IBag(request.bag).id(), id);
@@ -305,7 +312,7 @@ contract WithdrawalRequestTest is Test {
         uint256 id = manager.requestWithdrawal(10 ether, receiver);
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
 
         WithdrawalRequestViewer.RequestView memory view_ = viewer.getRequest(manager, id);
 
@@ -342,22 +349,22 @@ contract WithdrawalRequestTest is Test {
         assertEq(IBag(request.bag).id(), id);
     }
 
-    function testProxyFactoryRequiresCreatorRole() public {
-        bytes32 creatorRole = proxyFactory.CREATOR_ROLE();
+    function testBagFactoryRequiresCreatorRole() public {
+        bytes32 creatorRole = bagFactory.CREATOR_ROLE();
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, creatorRole)
         );
         vm.prank(user);
-        proxyFactory.create(abi.encodeCall(IBag.initialize, (address(manager), 1)));
+        bagFactory.create(abi.encodeCall(IBag.initialize, (address(manager), 1)));
     }
 
-    function testProxyFactoryUpgradesImplementation() public {
+    function testBagFactoryUpgradesImplementation() public {
         Bag newImplementation = new Bag();
 
         vm.prank(admin);
-        proxyFactory.upgradeImplementation(address(newImplementation));
+        bagFactory.upgradeImplementation(address(newImplementation));
 
-        assertEq(proxyFactory.implementation(), address(newImplementation));
+        assertEq(bagFactory.implementation(), address(newImplementation));
     }
 
     function testBagClaimRequiresRequestOwner() public {
@@ -441,7 +448,7 @@ contract WithdrawalRequestTest is Test {
     function testRequestWithdrawalRevertsBelowMinimumAmount() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                WithdrawalRequest.AmountBelowMinimum.selector, minWithdrawalAmount - 1, minWithdrawalAmount
+                MinAmountRequestPolicy.AmountBelowMinimum.selector, minWithdrawalAmount - 1, minWithdrawalAmount
             )
         );
         vm.prank(user);
@@ -452,7 +459,7 @@ contract WithdrawalRequestTest is Test {
         amount = uint96(bound(amount, 1, minWithdrawalAmount - 1));
 
         vm.expectRevert(
-            abi.encodeWithSelector(WithdrawalRequest.AmountBelowMinimum.selector, amount, minWithdrawalAmount)
+            abi.encodeWithSelector(MinAmountRequestPolicy.AmountBelowMinimum.selector, amount, minWithdrawalAmount)
         );
         vm.prank(user);
         manager.requestWithdrawal(amount, user);
@@ -469,58 +476,105 @@ contract WithdrawalRequestTest is Test {
         manager.requests(123);
     }
 
-    function testSetMinWithdrawalAmountRequiresConfigurationManagerRole() public {
+    function testSetRequestPolicyRequiresConfigurationManagerRole() public {
+        MinAmountRequestPolicy newRequestPolicy = new MinAmountRequestPolicy(2 ether);
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, manager.CONFIGURATION_MANAGER_ROLE()
             )
         );
         vm.prank(user);
-        manager.setMinWithdrawalAmount(2 ether);
+        manager.setRequestPolicy(address(newRequestPolicy));
     }
 
-    function testSetMinWithdrawalAmountUpdatesMinimum() public {
-        vm.expectEmit(true, true, true, true, address(manager));
-        emit WithdrawalRequest.MinWithdrawalAmountUpdated(minWithdrawalAmount, 2 ether);
-
-        vm.prank(configurationManager);
-        manager.setMinWithdrawalAmount(2 ether);
-
-        assertEq(manager.minWithdrawalAmount(), 2 ether);
-    }
-
-    function testFuzzSetMinWithdrawalAmountUpdatesMinimum(uint128 newMinWithdrawalAmount) public {
-        vm.prank(configurationManager);
-        manager.setMinWithdrawalAmount(newMinWithdrawalAmount);
-
-        assertEq(manager.minWithdrawalAmount(), newMinWithdrawalAmount);
-    }
-
-    function testSetFeeWalletUpdatesFeeWallet() public {
-        address newFeeWallet = address(0xFEE2);
+    function testSetRequestPolicyUpdatesPolicy() public {
+        MinAmountRequestPolicy newRequestPolicy = new MinAmountRequestPolicy(2 ether);
 
         vm.expectEmit(false, false, false, true, address(manager));
-        emit WithdrawalRequest.FeeWalletUpdated(feeWallet, newFeeWallet);
+        emit WithdrawalRequest.RequestPolicyUpdated(address(requestPolicy), address(newRequestPolicy));
 
         vm.prank(configurationManager);
-        manager.setFeeWallet(newFeeWallet);
+        manager.setRequestPolicy(address(newRequestPolicy));
 
-        assertEq(manager.feeWallet(), newFeeWallet);
+        assertEq(address(manager.requestPolicy()), address(newRequestPolicy));
     }
 
-    function testSetFeeWalletRequiresConfigurationManagerRole() public {
+    function testSetRequestPolicyUpdatesMinimumValidation() public {
+        MinAmountRequestPolicy newRequestPolicy = new MinAmountRequestPolicy(2 ether);
+
+        vm.prank(configurationManager);
+        manager.setRequestPolicy(address(newRequestPolicy));
+
+        vm.expectRevert(abi.encodeWithSelector(MinAmountRequestPolicy.AmountBelowMinimum.selector, 1 ether, 2 ether));
+        vm.prank(user);
+        manager.requestWithdrawal(1 ether, user);
+    }
+
+    function testSetRequestPolicyRevertsForZeroAddress() public {
+        vm.expectRevert(WithdrawalRequest.ZeroAddress.selector);
+        vm.prank(configurationManager);
+        manager.setRequestPolicy(address(0));
+    }
+
+    function testSetWithdrawerUpdatesWithdrawerAndApproval() public {
+        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+
+        vm.expectEmit(false, false, false, true, address(manager));
+        emit WithdrawalRequest.WithdrawerUpdated(address(withdrawer), address(newWithdrawer));
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(newWithdrawer));
+
+        assertEq(address(manager.withdrawer()), address(newWithdrawer));
+        assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
+        assertEq(ynToken.allowance(address(manager), address(newWithdrawer)), type(uint256).max);
+    }
+
+    function testSetWithdrawerRequiresConfigurationManagerRole() public {
+        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, manager.CONFIGURATION_MANAGER_ROLE()
             )
         );
         vm.prank(user);
-        manager.setFeeWallet(address(0xFEE2));
+        manager.setWithdrawer(address(newWithdrawer));
+    }
+
+    function testSetWithdrawerRevertsForZeroAddress() public {
+        vm.expectRevert(WithdrawalRequest.ZeroAddress.selector);
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(0));
+    }
+
+    function testBaseWithdrawerRejectsUnauthorizedCaller() public {
+        vm.expectRevert(abi.encodeWithSelector(BaseWithdrawer.Unauthorized.selector, user));
+        vm.prank(user);
+        withdrawer.withdrawAsset(0, address(asset), 1 ether, user, address(manager));
+    }
+
+    function testBaseWithdrawerConvertToAssetsUsesVaultRate() public view {
+        assertEq(withdrawer.convertToAssets(1 ether), 1 ether);
     }
 
     function testConvertToAssets() public view {
         assertEq(viewer.convertToAssets(manager, address(asset), 0), 0);
         assertEq(viewer.convertToAssets(manager, address(asset), 10 ether), 10 ether);
+    }
+
+    function testCurrentRedemptionRateUsesConfiguredWithdrawer() public {
+        assertEq(viewer.currentRedemptionRate(manager), 1 ether);
+
+        FixedRateWithdrawer fixedRateWithdrawer =
+            new FixedRateWithdrawer(address(ynToken), address(manager), 0.5 ether, collector);
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(fixedRateWithdrawer));
+
+        assertEq(fixedRateWithdrawer.convertToAssets(1 ether), 0.5 ether);
+        assertEq(viewer.currentRedemptionRate(manager), 0.5 ether);
     }
 
     function testFuzzConvertToAssetsReturnsAssetsForShares(uint128 shares) public view {
@@ -555,11 +609,11 @@ contract WithdrawalRequestTest is Test {
 
         vm.expectEmit(true, true, true, true, address(manager));
         emit WithdrawalRequest.WithdrawalRequestResolved(
-            id, user, address(ynToken), address(asset), 4 ether, 0, 4 ether, 6 ether
+            id, user, address(ynToken), address(asset), 4 ether, 4 ether, 6 ether
         );
 
         vm.prank(resolver);
-        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
 
         assertEq(amountBurned, 4 ether);
         assertEq(ynToken.balanceOf(address(manager)), 6 ether);
@@ -582,9 +636,9 @@ contract WithdrawalRequestTest is Test {
         uint256 id = manager.requestWithdrawal(10 ether, user);
 
         vm.startPrank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
-        manager.resolveWithdrawalRequest(id, address(asset), 2 ether, 0);
-        manager.resolveWithdrawalRequest(id, address(secondAsset), 3 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
+        manager.resolveWithdrawalRequest(id, address(asset), 2 ether);
+        manager.resolveWithdrawalRequest(id, address(secondAsset), 3 ether);
         vm.stopPrank();
 
         WithdrawalRequest.Request memory request = manager.requests(id);
@@ -595,11 +649,6 @@ contract WithdrawalRequestTest is Test {
     }
 
     function testResolveWithdrawalRequestWithArraysResolvesMultipleAssets() public {
-        NoOpResolver noOpResolver = new NoOpResolver(manager, admin, resolver);
-        bytes32 managerResolverRole = manager.RESOLVER_ROLE();
-        vm.prank(admin);
-        manager.grantRole(managerResolverRole, address(noOpResolver));
-
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
 
@@ -611,7 +660,7 @@ contract WithdrawalRequestTest is Test {
         assetAmounts[1] = 3 ether;
 
         vm.prank(resolver);
-        uint256[] memory amountsBurned = noOpResolver.resolveWithdrawalRequest(id, assets, assetAmounts);
+        uint256[] memory amountsBurned = manager.resolveWithdrawalRequest(id, assets, assetAmounts);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
         assertEq(amountsBurned.length, 2);
@@ -625,125 +674,7 @@ contract WithdrawalRequestTest is Test {
         assertEq(secondAsset.balanceOf(request.bag), 3 ether);
     }
 
-    function testResolveWithdrawalRequestWithFeeSendsFeeToFeeWallet() public {
-        vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, user);
-
-        vm.expectEmit(true, true, true, true, address(manager));
-        emit WithdrawalRequest.WithdrawalRequestResolved(
-            id, user, address(ynToken), address(asset), 4 ether, 1 ether, 4 ether, 5 ether
-        );
-
-        vm.prank(resolver);
-        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 1 ether);
-
-        WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(amountBurned, 4 ether);
-        assertEq(request.amountLocked, 5 ether);
-        assertEq(asset.balanceOf(request.bag), 4 ether);
-        assertEq(ynToken.balanceOf(feeWallet), 1 ether);
-        assertEq(asset.balanceOf(feeWallet), 0);
-        assertEq(asset.balanceOf(address(manager)), 0);
-    }
-
-    function testResolveWithdrawalRequestWithArrayFeesSendsFeesToFeeWallet() public {
-        FixedRateResolver fixedRateResolver = new FixedRateResolver(manager, admin, resolver, 1 ether);
-        bytes32 managerResolverRole = manager.RESOLVER_ROLE();
-        vm.prank(admin);
-        manager.grantRole(managerResolverRole, address(fixedRateResolver));
-        ynToken.setConvertToAssetsRate(2 ether);
-
-        vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, user);
-
-        address[] memory assets = new address[](2);
-        assets[0] = address(asset);
-        assets[1] = address(secondAsset);
-        uint256[] memory assetAmounts = new uint256[](2);
-        assetAmounts[0] = 3 ether;
-        assetAmounts[1] = 2 ether;
-
-        vm.prank(resolver);
-        uint256[] memory amountsBurned = fixedRateResolver.resolveWithdrawalRequest(id, assets, assetAmounts);
-
-        WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(amountsBurned[0], 1.5 ether);
-        assertEq(amountsBurned[1], 1 ether);
-        assertEq(request.amountLocked, 5 ether);
-        assertEq(asset.balanceOf(request.bag), 3 ether);
-        assertEq(secondAsset.balanceOf(request.bag), 2 ether);
-        assertEq(ynToken.balanceOf(feeWallet), 2.5 ether);
-        assertEq(asset.balanceOf(feeWallet), 0);
-        assertEq(secondAsset.balanceOf(feeWallet), 0);
-    }
-
-    function testNoOpResolverResolvesWithZeroFee() public {
-        NoOpResolver noOpResolver = new NoOpResolver(manager, admin, resolver);
-        bytes32 managerResolverRole = manager.RESOLVER_ROLE();
-        vm.prank(admin);
-        manager.grantRole(managerResolverRole, address(noOpResolver));
-
-        vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, user);
-
-        vm.prank(resolver);
-        uint256 amountBurned = noOpResolver.resolveWithdrawalRequest(id, address(asset), 4 ether);
-
-        WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(amountBurned, 4 ether);
-        assertEq(request.amountLocked, 6 ether);
-        assertEq(asset.balanceOf(request.bag), 4 ether);
-        assertEq(asset.balanceOf(feeWallet), 0);
-    }
-
-    function testFixedRateResolverChargesFeeAtConfiguredRate() public {
-        ynToken.setConvertToAssetsRate(2 ether);
-        FixedRateResolver fixedRateResolver = new FixedRateResolver(manager, admin, resolver, 1 ether);
-        bytes32 managerResolverRole = manager.RESOLVER_ROLE();
-        vm.prank(admin);
-        manager.grantRole(managerResolverRole, address(fixedRateResolver));
-
-        vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, user);
-
-        assertEq(fixedRateResolver.resolutionFee(id, address(asset), 4 ether), 2 ether);
-
-        vm.prank(resolver);
-        uint256 amountBurned = fixedRateResolver.resolveWithdrawalRequest(id, address(asset), 4 ether);
-
-        WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(amountBurned, 2 ether);
-        assertEq(request.amountLocked, 6 ether);
-        assertEq(asset.balanceOf(request.bag), 4 ether);
-        assertEq(ynToken.balanceOf(feeWallet), 2 ether);
-        assertEq(asset.balanceOf(feeWallet), 0);
-    }
-
-    function testRequestRateResolverChargesFeeAtRequestRate() public {
-        vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, user);
-        ynToken.setConvertToAssetsRate(2 ether);
-
-        RequestRateResolver requestRateResolver = new RequestRateResolver(manager, admin, resolver);
-        bytes32 managerResolverRole = manager.RESOLVER_ROLE();
-        vm.prank(admin);
-        manager.grantRole(managerResolverRole, address(requestRateResolver));
-
-        assertEq(requestRateResolver.resolutionFee(id, address(asset), 4 ether), 2 ether);
-
-        vm.prank(resolver);
-        uint256 amountBurned = requestRateResolver.resolveWithdrawalRequest(id, address(asset), 4 ether);
-
-        WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(amountBurned, 2 ether);
-        assertEq(request.amountLocked, 6 ether);
-        assertEq(asset.balanceOf(request.bag), 4 ether);
-        assertEq(ynToken.balanceOf(feeWallet), 2 ether);
-        assertEq(asset.balanceOf(feeWallet), 0);
-    }
-
     function testResolveWithdrawalRequestWithArraysRevertsForLengthMismatch() public {
-        NoOpResolver noOpResolver = new NoOpResolver(manager, admin, resolver);
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
 
@@ -753,9 +684,83 @@ contract WithdrawalRequestTest is Test {
         uint256[] memory assetAmounts = new uint256[](1);
         assetAmounts[0] = 4 ether;
 
-        vm.expectRevert(abi.encodeWithSelector(IResolver.ArrayLengthMismatch.selector, 2, 1));
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.ArrayLengthMismatch.selector, 2, 1));
         vm.prank(resolver);
-        noOpResolver.resolveWithdrawalRequest(id, assets, assetAmounts);
+        manager.resolveWithdrawalRequest(id, assets, assetAmounts);
+    }
+
+    function testFixedRateWithdrawerRejectsNonDefaultAsset() public {
+        FixedRateWithdrawer fixedRateWithdrawer =
+            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(fixedRateWithdrawer));
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user);
+
+        vm.expectRevert(abi.encodeWithSelector(FixedRateWithdrawer.InvalidAsset.selector, address(secondAsset)));
+        vm.prank(resolver);
+        manager.resolveWithdrawalRequest(id, address(secondAsset), 1 ether);
+    }
+
+    function testFixedRateWithdrawerReturnsActualBurnWhenRateIsBelowFixedRate() public {
+        FixedRateWithdrawer fixedRateWithdrawer =
+            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(fixedRateWithdrawer));
+        ynToken.setBurnMultiplier(2);
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user);
+
+        vm.prank(resolver);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
+
+        WithdrawalRequest.Request memory request = manager.requests(id);
+        assertEq(amountBurned, 2 ether);
+        assertEq(request.amountLocked, 8 ether);
+        assertEq(ynToken.balanceOf(collector), 0);
+    }
+
+    function testFixedRateWithdrawerAllowsDefaultAssetAtFixedRate() public {
+        FixedRateWithdrawer fixedRateWithdrawer =
+            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(fixedRateWithdrawer));
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user);
+
+        vm.prank(resolver);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
+
+        WithdrawalRequest.Request memory request = manager.requests(id);
+        assertEq(amountBurned, 1 ether);
+        assertEq(request.amountLocked, 9 ether);
+        assertEq(asset.balanceOf(request.bag), 1 ether);
+    }
+
+    function testFixedRateWithdrawerTransfersSurplusSharesToCollector() public {
+        FixedRateWithdrawer fixedRateWithdrawer =
+            new FixedRateWithdrawer(address(ynToken), address(manager), 0.5 ether, collector);
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(fixedRateWithdrawer));
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user);
+
+        vm.prank(resolver);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
+
+        WithdrawalRequest.Request memory request = manager.requests(id);
+        assertEq(amountBurned, 2 ether);
+        assertEq(request.amountLocked, 8 ether);
+        assertEq(asset.balanceOf(request.bag), 1 ether);
+        assertEq(ynToken.balanceOf(collector), 1 ether);
     }
 
     function testFuzzResolveWithdrawalRequestBurnsLockedTokenAndSubtractsBurnedAmount(
@@ -769,7 +774,7 @@ contract WithdrawalRequestTest is Test {
         uint256 id = manager.requestWithdrawal(lockedAmount, user);
 
         vm.prank(resolver);
-        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), assets, 0);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), assets);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
 
@@ -794,11 +799,11 @@ contract WithdrawalRequestTest is Test {
 
         vm.expectEmit(true, true, true, true, address(manager));
         emit WithdrawalRequest.WithdrawalRequestResolved(
-            id, user, address(ynToken), address(asset), 10 ether, 0, 10 ether, 0
+            id, user, address(ynToken), address(asset), 10 ether, 10 ether, 0
         );
 
         vm.prank(resolver);
-        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), maxAssets, 0);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), maxAssets);
 
         assertEq(amountBurned, 10 ether);
 
@@ -820,7 +825,7 @@ contract WithdrawalRequestTest is Test {
         uint256 maxAssets = viewer.maxResolutionAssets(manager, id, address(asset));
 
         vm.prank(resolver);
-        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), maxAssets, 0);
+        uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), maxAssets);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
 
@@ -839,7 +844,7 @@ contract WithdrawalRequestTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.InvalidTokenBalanceChange.selector, 10 ether, 6 ether));
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
     }
 
     function testResolveWithdrawalRequestRevertsWhenAssetsWithdrawnMismatchExpected() public {
@@ -850,7 +855,7 @@ contract WithdrawalRequestTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.UnexpectedAssetsWithdrawn.selector, 4 ether, 3 ether));
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
     }
 
     function testResolveWithdrawalRequestRequiresResolverRole() public {
@@ -863,7 +868,7 @@ contract WithdrawalRequestTest is Test {
             )
         );
         vm.prank(user);
-        manager.resolveWithdrawalRequest(id, address(asset), 1 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
     }
 
     function testResolveWithdrawalRequestRevertsWhenBurnExceedsLockedAmount() public {
@@ -877,6 +882,6 @@ contract WithdrawalRequestTest is Test {
             abi.encodeWithSelector(WithdrawalRequest.InsufficientLockedAmount.selector, id, 10 ether, 12 ether)
         );
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 6 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 6 ether);
     }
 }

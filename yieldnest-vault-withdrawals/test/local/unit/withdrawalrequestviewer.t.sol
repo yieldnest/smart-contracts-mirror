@@ -8,7 +8,9 @@ import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
 import {IBag} from "src/interface/IBag.sol";
+import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract ViewerVaultMock is ERC20 {
@@ -60,6 +62,10 @@ contract ViewerVaultMock is ERC20 {
         return assetRates[asset_];
     }
 
+    function asset() external view returns (address) {
+        return assetList[0];
+    }
+
     function convertToAssets(uint256 shares) external pure returns (uint256 assets) {
         return shares;
     }
@@ -87,13 +93,12 @@ contract WithdrawalRequestViewerTest is Test {
     ViewerVaultMock ynToken;
     ViewerAssetMock asset;
     ViewerAssetMock secondAsset;
-    BeaconProxyFactory proxyFactory;
+    BeaconProxyFactory bagFactory;
 
     address admin = address(0xA11CE);
     address resolver = address(0xF0111);
     address configurationManager = address(0xC0F16);
     address pauser = address(0xAA05E);
-    address feeWallet = address(0xFEE);
     address user = address(0xB0B);
     address receiver = address(0xCA11);
     address other = address(0xCAFE);
@@ -105,17 +110,20 @@ contract WithdrawalRequestViewerTest is Test {
         viewer = new WithdrawalRequestViewer();
 
         Bag bagImplementation = new Bag();
-        BeaconProxyFactory proxyFactoryImplementation = new BeaconProxyFactory();
-        proxyFactory = BeaconProxyFactory(
+        BeaconProxyFactory bagFactoryImplementation = new BeaconProxyFactory();
+        bagFactory = BeaconProxyFactory(
             address(
                 new ERC1967Proxy(
-                    address(proxyFactoryImplementation),
+                    address(bagFactoryImplementation),
                     abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), admin, admin, admin))
                 )
             )
         );
 
         WithdrawalRequest implementation = new WithdrawalRequest();
+        address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        BaseWithdrawer withdrawer = new BaseWithdrawer(address(ynToken), predictedManager);
+        MinAmountRequestPolicy requestPolicy = new MinAmountRequestPolicy(1 ether);
         manager = WithdrawalRequest(
             address(
                 new ERC1967Proxy(
@@ -128,18 +136,18 @@ contract WithdrawalRequestViewerTest is Test {
                             resolver,
                             configurationManager,
                             pauser,
-                            address(proxyFactory),
-                            1 ether,
-                            feeWallet
+                            address(bagFactory),
+                            address(withdrawer),
+                            address(requestPolicy)
                         )
                     )
                 )
             )
         );
 
-        bytes32 creatorRole = proxyFactory.CREATOR_ROLE();
+        bytes32 creatorRole = bagFactory.CREATOR_ROLE();
         vm.prank(admin);
-        proxyFactory.grantRole(creatorRole, address(manager));
+        bagFactory.grantRole(creatorRole, address(manager));
 
         address[] memory assets = new address[](2);
         assets[0] = address(asset);
@@ -177,7 +185,7 @@ contract WithdrawalRequestViewerTest is Test {
         uint256 id = manager.requestWithdrawal(10 ether, receiver);
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
         WithdrawalRequestViewer.RequestView memory view_ = viewer.getRequest(manager, id);
@@ -202,7 +210,7 @@ contract WithdrawalRequestViewerTest is Test {
         uint256 id = manager.requestWithdrawal(10 ether, receiver);
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
 
         address[] memory assets = new address[](0);
         uint8[] memory decimals_ = new uint8[](0);
@@ -225,7 +233,7 @@ contract WithdrawalRequestViewerTest is Test {
         vm.stopPrank();
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(completedId, address(asset), 10 ether, 0);
+        manager.resolveWithdrawalRequest(completedId, address(asset), 10 ether);
 
         vm.prank(receiver);
         manager.transferFrom(receiver, other, transferredId);
@@ -267,8 +275,8 @@ contract WithdrawalRequestViewerTest is Test {
         assertFalse(viewer.requestIsClaimable(manager, belowThresholdId));
 
         vm.startPrank(resolver);
-        manager.resolveWithdrawalRequest(atThresholdId, address(asset), 10 ether - dustThreshold, 0);
-        manager.resolveWithdrawalRequest(belowThresholdId, address(asset), 10 ether - dustThreshold + 1, 0);
+        manager.resolveWithdrawalRequest(atThresholdId, address(asset), 10 ether - dustThreshold);
+        manager.resolveWithdrawalRequest(belowThresholdId, address(asset), 10 ether - dustThreshold + 1);
         vm.stopPrank();
 
         assertFalse(viewer.requestIsClaimable(manager, atThresholdId));
@@ -283,7 +291,7 @@ contract WithdrawalRequestViewerTest is Test {
         assertFalse(viewer.requestIsClaimed(manager, id));
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 10 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 10 ether);
 
         assertFalse(viewer.requestIsClaimed(manager, id));
 
@@ -305,7 +313,7 @@ contract WithdrawalRequestViewerTest is Test {
         assertEq(viewer.maxResolutionAssets(manager, id, address(asset)), 10 ether);
 
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(id, address(asset), 4 ether, 0);
+        manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
 
         assertEq(viewer.maxResolutionAssets(manager, id, address(asset)), 6 ether);
     }

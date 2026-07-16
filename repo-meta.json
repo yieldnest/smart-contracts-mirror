@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "8d2f161290fd586d11f8973f645ee1272620bedb",
-      "commit_message": "Extract base resolver"
+      "commit": "54cbe07ddec2b045e95410920e5305945dd3ca84",
+      "commit_message": "Add withdrawer redemption rate view"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

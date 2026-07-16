@@ -12,20 +12,23 @@ import {MainnetContracts as MC} from "lib/yieldnest-vault/script/Contracts.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
+import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract WithdrawalRequestMainnetTest is Test, Actors {
     BaseVault public vault;
     WithdrawalRequest public manager;
     WithdrawalRequestViewer public viewer;
+    BaseWithdrawer public withdrawer;
+    MinAmountRequestPolicy public requestPolicy;
     Bag public bagImplementation;
-    BeaconProxyFactory public proxyFactoryImplementation;
-    BeaconProxyFactory public proxyFactory;
+    BeaconProxyFactory public bagFactoryImplementation;
+    BeaconProxyFactory public bagFactory;
 
     address public requester;
     address public resolver;
-    address public feeWallet;
     address public configurationManager;
     address public pauser;
 
@@ -37,19 +40,21 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
 
         requester = makeAddr("requester");
         resolver = makeAddr("resolver");
-        feeWallet = makeAddr("feeWallet");
         configurationManager = makeAddr("configurationManager");
         pauser = makeAddr("pauser");
 
         bagImplementation = new Bag();
-        proxyFactoryImplementation = new BeaconProxyFactory();
-        ERC1967Proxy proxyFactoryProxy = new ERC1967Proxy(
-            address(proxyFactoryImplementation),
+        bagFactoryImplementation = new BeaconProxyFactory();
+        ERC1967Proxy bagFactoryProxy = new ERC1967Proxy(
+            address(bagFactoryImplementation),
             abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), ADMIN, ADMIN, ADMIN))
         );
-        proxyFactory = BeaconProxyFactory(address(proxyFactoryProxy));
+        bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
 
         WithdrawalRequest implementation = new WithdrawalRequest();
+        address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        withdrawer = new BaseWithdrawer(address(vault), predictedManager);
+        requestPolicy = new MinAmountRequestPolicy(MIN_WITHDRAWAL_AMOUNT);
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(implementation),
             abi.encodeCall(
@@ -60,20 +65,20 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
                     resolver,
                     configurationManager,
                     pauser,
-                    address(proxyFactory),
-                    MIN_WITHDRAWAL_AMOUNT,
-                    feeWallet
+                    address(bagFactory),
+                    address(withdrawer),
+                    address(requestPolicy)
                 )
             )
         );
         manager = WithdrawalRequest(address(proxy));
 
-        bytes32 creatorRole = proxyFactory.CREATOR_ROLE();
+        bytes32 creatorRole = bagFactory.CREATOR_ROLE();
         vm.prank(ADMIN);
-        proxyFactory.grantRole(creatorRole, address(manager));
+        bagFactory.grantRole(creatorRole, address(manager));
 
         vm.startPrank(ADMIN);
-        vault.grantRole(vault.ASSET_WITHDRAWER_ROLE(), address(manager));
+        vault.grantRole(vault.ASSET_WITHDRAWER_ROLE(), address(withdrawer));
         vault.grantRole(vault.ASSET_MANAGER_ROLE(), address(this));
         vm.stopPrank();
 
@@ -84,7 +89,10 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         vault.processAccounting();
     }
 
-    function _claimSingleERC20(address bag, address asset, address recipient, uint256 amount) internal returns (uint256) {
+    function _claimSingleERC20(address bag, address asset, address recipient, uint256 amount)
+        internal
+        returns (uint256)
+    {
         address[] memory assets = new address[](1);
         assets[0] = asset;
         uint256[] memory amounts = new uint256[](1);
@@ -101,7 +109,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         uint256 totalSupplyBefore = vault.totalSupply();
 
         vm.prank(resolver);
-        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, MC.WETH, 2 ether, 0);
+        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, MC.WETH, 2 ether);
 
         WithdrawalRequest.Request memory request = manager.requests(requestId);
         assertEq(IERC20(MC.WETH).balanceOf(request.bag), 2 ether);
@@ -124,7 +132,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         assertGt(maxAssets, 0);
 
         vm.prank(resolver);
-        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, MC.WETH, maxAssets, 0);
+        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, MC.WETH, maxAssets);
 
         WithdrawalRequest.Request memory request = manager.requests(requestId);
         assertEq(IERC20(MC.WETH).balanceOf(request.bag), maxAssets);
@@ -150,7 +158,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         uint256 maxAssets = viewer.maxResolutionAssets(manager, requestId, asset);
 
         vm.prank(resolver);
-        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, asset, maxAssets, 0);
+        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, asset, maxAssets);
 
         WithdrawalRequest.Request memory request = manager.requests(requestId);
         assertLe(burnedShares, depositedShares);
@@ -185,7 +193,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         uint256 managerAssetBalanceBefore = IERC20(asset).balanceOf(address(manager));
 
         vm.prank(resolver);
-        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, asset, withdrawAmount, 0);
+        uint256 burnedShares = manager.resolveWithdrawalRequest(requestId, asset, withdrawAmount);
 
         WithdrawalRequest.Request memory request = manager.requests(requestId);
         assertEq(IERC20(asset).balanceOf(request.bag), withdrawAmount);
@@ -209,13 +217,13 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         uint256 requestId = _requestWithdrawal(requester, depositedShares);
 
         vm.prank(resolver);
-        uint256 firstBurned = manager.resolveWithdrawalRequest(requestId, MC.WETH, firstWithdraw, 0);
+        uint256 firstBurned = manager.resolveWithdrawalRequest(requestId, MC.WETH, firstWithdraw);
 
         WithdrawalRequest.Request memory requestAfterFirst = manager.requests(requestId);
         assertEq(requestAfterFirst.amountLocked, depositedShares - firstBurned);
 
         vm.prank(resolver);
-        uint256 secondBurned = manager.resolveWithdrawalRequest(requestId, MC.WETH, secondWithdraw, 0);
+        uint256 secondBurned = manager.resolveWithdrawalRequest(requestId, MC.WETH, secondWithdraw);
 
         WithdrawalRequest.Request memory requestAfterSecond = manager.requests(requestId);
         assertEq(requestAfterSecond.amountLocked, depositedShares - firstBurned - secondBurned);
@@ -237,7 +245,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
 
         vm.expectRevert();
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(requestId, MC.WETH, 1 ether, 0);
+        manager.resolveWithdrawalRequest(requestId, MC.WETH, 1 ether);
     }
 
     function test_withdrawalRequest_revertsForUnauthorizedResolver() public {
@@ -246,18 +254,20 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
 
         vm.expectRevert();
         vm.prank(makeAddr("notResolver"));
-        manager.resolveWithdrawalRequest(requestId, MC.WETH, 1 ether, 0);
+        manager.resolveWithdrawalRequest(requestId, MC.WETH, 1 ether);
     }
 
     function test_withdrawalRequest_respectsMinimumAndPause() public {
+        MinAmountRequestPolicy newRequestPolicy = new MinAmountRequestPolicy(2 ether);
+
         vm.prank(configurationManager);
-        manager.setMinWithdrawalAmount(2 ether);
+        manager.setRequestPolicy(address(newRequestPolicy));
 
         uint256 depositedShares = _depositIntoYnETHx(MC.WETH, requester, 5 ether);
 
         vm.startPrank(requester);
         IERC20(address(vault)).approve(address(manager), depositedShares);
-        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.AmountBelowMinimum.selector, 1 ether, 2 ether));
+        vm.expectRevert(abi.encodeWithSelector(MinAmountRequestPolicy.AmountBelowMinimum.selector, 1 ether, 2 ether));
         manager.requestWithdrawal(1 ether, requester);
         vm.stopPrank();
 
@@ -272,18 +282,18 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
     function test_withdrawalRequest_revertsForInvalidRequestAndZeroAmounts() public {
         vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.RequestNotFound.selector, 123));
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(123, MC.WETH, 1 ether, 0);
+        manager.resolveWithdrawalRequest(123, MC.WETH, 1 ether);
 
         uint256 depositedShares = _depositIntoYnETHx(MC.WETH, requester, 5 ether);
         uint256 requestId = _requestWithdrawal(requester, depositedShares);
 
         vm.expectRevert(WithdrawalRequest.ZeroAmount.selector);
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(requestId, MC.WETH, 0, 0);
+        manager.resolveWithdrawalRequest(requestId, MC.WETH, 0);
 
         vm.expectRevert(WithdrawalRequest.ZeroAddress.selector);
         vm.prank(resolver);
-        manager.resolveWithdrawalRequest(requestId, address(0), 1 ether, 0);
+        manager.resolveWithdrawalRequest(requestId, address(0), 1 ether);
     }
 
     function _depositIntoYnETHx(address asset, address receiver, uint256 amount) internal returns (uint256 shares) {
@@ -306,7 +316,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         WithdrawalRequest.Request memory request = manager.requests(requestId);
         assertTrue(manager.requestExists(requestId));
         assertFalse(manager.requestExists(requestId + 1));
-        assertEq(address(manager.proxyFactory()), address(proxyFactory));
+        assertEq(address(manager.bagFactory()), address(bagFactory));
         assertTrue(request.bag != address(0));
         assertEq(manager.ownerOf(requestId), owner);
         assertEq(IBag(request.bag).ownerRegistry(), address(manager));
