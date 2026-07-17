@@ -13,6 +13,9 @@ import {ERC721Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contract
 import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {IAuth} from "src/interface/IAuth.sol";
@@ -22,9 +25,19 @@ import {IRequestPolicy} from "src/interface/IRequestPolicy.sol";
 import {IWithdrawer} from "src/interface/IWithdrawer.sol";
 
 interface IWithdrawAssetVault is IERC20Metadata {
+    /// @notice Withdraws a vault asset to a receiver and consumes shares from owner.
+    /// @param asset_ Asset to withdraw.
+    /// @param assets Amount of `asset_` to withdraw.
+    /// @param receiver Receiver of the withdrawn asset.
+    /// @param owner Owner whose shares are consumed.
+    /// @return shares Amount of shares consumed.
     function withdrawAsset(address asset_, uint256 assets, address receiver, address owner)
         external
         returns (uint256 shares);
+
+    /// @notice Converts shares to the vault default asset amount.
+    /// @param shares Amount of shares to convert.
+    /// @return assets Amount of default asset represented by `shares`.
     function convertToAssets(uint256 shares) external view returns (uint256 assets);
 }
 
@@ -35,6 +48,7 @@ contract WithdrawalRequest is
     AccessControlUpgradeable,
     ERC721EnumerableUpgradeable,
     PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
     IAuth,
     IResolver
 {
@@ -102,6 +116,15 @@ contract WithdrawalRequest is
         _disableInitializers();
     }
 
+    /// @notice Initializes the withdrawal request contract and its roles.
+    /// @param token_ yn-token shares locked and resolved by this contract.
+    /// @param defaultAdmin Account granted the default admin role.
+    /// @param resolver Account granted permission to resolve requests.
+    /// @param configurationManager Account granted permission to update configurable modules.
+    /// @param pauser Account granted permission to pause and unpause request creation.
+    /// @param bagFactory_ Factory used to deploy request bags.
+    /// @param withdrawer_ Adapter used to withdraw assets from the yn-token.
+    /// @param requestPolicy_ Policy used to validate request creation.
     function initialize(
         address token_,
         address defaultAdmin,
@@ -124,6 +147,7 @@ contract WithdrawalRequest is
         __ERC721_init("MAX Vault Withdrawal Request", "ynWREQ");
         __ERC721Enumerable_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         _initializeStorage(token_, bagFactory_, withdrawer_, requestPolicy_);
 
@@ -142,30 +166,6 @@ contract WithdrawalRequest is
         $.withdrawer = IWithdrawer(withdrawer_);
         $.requestPolicy = IRequestPolicy(requestPolicy_);
         IERC20(token_).forceApprove(withdrawer_, type(uint256).max);
-    }
-
-    // --- Configuration ---
-
-    function setWithdrawer(address withdrawer_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
-        if (withdrawer_ == address(0)) revert ZeroAddress();
-
-        RequestStorage storage $ = _getRequestStorage();
-        address oldWithdrawer = address($.withdrawer);
-        IERC20(address($.token)).forceApprove(oldWithdrawer, 0);
-        $.withdrawer = IWithdrawer(withdrawer_);
-        IERC20(address($.token)).forceApprove(withdrawer_, type(uint256).max);
-
-        emit WithdrawerUpdated(oldWithdrawer, withdrawer_);
-    }
-
-    function setRequestPolicy(address requestPolicy_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
-        if (requestPolicy_ == address(0)) revert ZeroAddress();
-
-        RequestStorage storage $ = _getRequestStorage();
-        address oldRequestPolicy = address($.requestPolicy);
-        $.requestPolicy = IRequestPolicy(requestPolicy_);
-
-        emit RequestPolicyUpdated(oldRequestPolicy, requestPolicy_);
     }
 
     // --- Requests ---
@@ -205,6 +205,7 @@ contract WithdrawalRequest is
         external
         override
         onlyRole(RESOLVER_ROLE)
+        nonReentrant
         returns (uint256 amountBurned)
     {
         (amountBurned,) = _resolveWithdrawalRequest(id, asset, assets);
@@ -219,6 +220,7 @@ contract WithdrawalRequest is
         external
         override
         onlyRole(RESOLVER_ROLE)
+        nonReentrant
         returns (uint256[] memory amountsBurned)
     {
         if (assets.length != assetAmounts.length) {
@@ -247,6 +249,7 @@ contract WithdrawalRequest is
         uint256 tokenBalanceBefore = $.token.balanceOf(address(this));
         uint256 bagAssetBalanceBefore = IERC20(asset).balanceOf(bag);
 
+        // withdrawAsset to bag and burn yn-tokens
         tokenAmountBurned = $.withdrawer.withdrawAsset(id, asset, assets, bag, address(this));
 
         {
@@ -254,14 +257,14 @@ contract WithdrawalRequest is
             if (tokenBalanceBefore - tokenBalanceAfter != tokenAmountBurned) {
                 revert InvalidTokenBalanceChange(tokenBalanceBefore, tokenBalanceAfter);
             }
-        }
 
-        if (tokenAmountBurned > request.amountLocked) {
-            revert InsufficientLockedAmount(id, request.amountLocked, tokenAmountBurned);
-        }
+            if (tokenAmountBurned > request.amountLocked) {
+                revert InsufficientLockedAmount(id, request.amountLocked, tokenAmountBurned);
+            }
 
-        assetsWithdrawn = IERC20(asset).balanceOf(bag) - bagAssetBalanceBefore;
-        if (assetsWithdrawn != assets) revert UnexpectedAssetsWithdrawn(assets, assetsWithdrawn);
+            assetsWithdrawn = IERC20(asset).balanceOf(bag) - bagAssetBalanceBefore;
+            if (assetsWithdrawn != assets) revert UnexpectedAssetsWithdrawn(assets, assetsWithdrawn);
+        }
 
         _recordAssetRedeemed(request, asset);
 
@@ -280,12 +283,42 @@ contract WithdrawalRequest is
         request.assetsRedeemed.push(asset);
     }
 
+    // --- Configuration ---
+
+    /// @notice Updates the withdrawer adapter and refreshes yn-token allowance.
+    /// @param withdrawer_ New withdrawer adapter address.
+    function setWithdrawer(address withdrawer_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
+        if (withdrawer_ == address(0)) revert ZeroAddress();
+
+        RequestStorage storage $ = _getRequestStorage();
+        address oldWithdrawer = address($.withdrawer);
+        IERC20(address($.token)).forceApprove(oldWithdrawer, 0);
+        $.withdrawer = IWithdrawer(withdrawer_);
+        IERC20(address($.token)).forceApprove(withdrawer_, type(uint256).max);
+
+        emit WithdrawerUpdated(oldWithdrawer, withdrawer_);
+    }
+
+    /// @notice Updates the request policy used to validate new withdrawal requests.
+    /// @param requestPolicy_ New request policy address.
+    function setRequestPolicy(address requestPolicy_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
+        if (requestPolicy_ == address(0)) revert ZeroAddress();
+
+        RequestStorage storage $ = _getRequestStorage();
+        address oldRequestPolicy = address($.requestPolicy);
+        $.requestPolicy = IRequestPolicy(requestPolicy_);
+
+        emit RequestPolicyUpdated(oldRequestPolicy, requestPolicy_);
+    }
+
     // --- Pause ---
 
+    /// @notice Pauses new withdrawal request creation.
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
+    /// @notice Unpauses new withdrawal request creation.
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
@@ -339,23 +372,20 @@ contract WithdrawalRequest is
         return _requestExists(_getRequestStorage().requests[id]);
     }
 
-    /// @notice Returns whether `spender` owns or is approved to operate the request NFT.
-    /// @param spender Account to check.
-    /// @param id Request id to query.
-    /// @return True if `spender` is the owner, approved address, or approved operator.
-    function isAuthorized(address spender, uint256 id) external view override returns (bool) {
-        address owner = ownerOf(id);
-        return _isAuthorized(owner, spender, id);
-    }
-
     function _requestExists(Request memory request) internal pure returns (bool) {
         return request.bag != address(0);
     }
 
+    /// @notice Returns the owner of a request NFT.
+    /// @param id Request id to query.
+    /// @return Owner of the request NFT.
     function ownerOf(uint256 id) public view override(ERC721Upgradeable, IERC721, IAuth) returns (address) {
         return super.ownerOf(id);
     }
 
+    /// @notice Returns whether this contract supports an interface id.
+    /// @param interfaceId Interface id to query.
+    /// @return True if the interface is supported.
     function supportsInterface(bytes4 interfaceId)
         public
         view

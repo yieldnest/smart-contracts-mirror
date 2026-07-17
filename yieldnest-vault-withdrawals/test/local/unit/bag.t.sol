@@ -5,7 +5,11 @@ import "forge-std/Test.sol";
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import {IERC721Receiver} from "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {Bag} from "src/Bag.sol";
 
@@ -39,24 +43,58 @@ contract NativeRejector {
     }
 }
 
+contract ReentrantNativeClaimer {
+    Bag internal bag;
+    address[] internal assets;
+    uint256[] internal amounts;
+
+    function arm(Bag bag_, address asset, uint256 amount) external {
+        bag = bag_;
+        assets = new address[](1);
+        assets[0] = asset;
+        amounts = new uint256[](1);
+        amounts[0] = amount;
+    }
+
+    function claim() external {
+        bag.claim(assets, payable(address(this)), amounts);
+    }
+
+    receive() external payable {
+        bag.claim(assets, payable(address(this)), amounts);
+    }
+}
+
+contract ReentrantERC721Claimer is IERC721Receiver {
+    Bag internal bag;
+    address internal nft;
+    uint256 internal reentrantTokenId;
+
+    function arm(Bag bag_, address nft_, uint256 reentrantTokenId_) external {
+        bag = bag_;
+        nft = nft_;
+        reentrantTokenId = reentrantTokenId_;
+    }
+
+    function claim(uint256 tokenId) external {
+        bag.claimERC721(nft, address(this), tokenId);
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4) {
+        bag.claimERC721(nft, address(this), reentrantTokenId);
+        return IERC721Receiver.onERC721Received.selector;
+    }
+}
+
 contract OwnerRegistryMock {
     mapping(uint256 id => address owner) internal owners;
-    mapping(uint256 id => mapping(address spender => bool authorized)) internal authorizations;
 
     function setOwner(uint256 id, address owner) external {
         owners[id] = owner;
     }
 
-    function setAuthorized(uint256 id, address spender, bool authorized) external {
-        authorizations[id][spender] = authorized;
-    }
-
     function ownerOf(uint256 id) external view returns (address) {
         return owners[id];
-    }
-
-    function isAuthorized(address spender, uint256 id) external view returns (bool) {
-        return spender == owners[id] || authorizations[id][spender];
     }
 }
 
@@ -205,6 +243,16 @@ contract BagTest is Test {
         assertEq(amountsClaimed.length, 0);
     }
 
+    function testClaimRevertsOnNativeReentrancy() public {
+        ReentrantNativeClaimer reentrantClaimer = new ReentrantNativeClaimer();
+        ownerRegistry.setOwner(requestId, address(reentrantClaimer));
+        vm.deal(address(bag), 2 ether);
+        reentrantClaimer.arm(bag, bag.ETH(), 1 ether);
+
+        vm.expectRevert(ReentrancyGuardUpgradeable.ReentrancyGuardReentrantCall.selector);
+        reentrantClaimer.claim();
+    }
+
     function testClaimRevertsWhenCallerIsNotRequestOwner() public {
         address[] memory assets = new address[](1);
         assets[0] = address(token);
@@ -216,11 +264,14 @@ contract BagTest is Test {
         bag.claim(assets, payable(recipient), amounts);
     }
 
-    function testClaimAllowsAuthorizedOperator() public {
+    function testClaimRejectsNonOwnerAndAllowsOwner() public {
         token.mint(address(bag), 12 ether);
-        ownerRegistry.setAuthorized(requestId, other, true);
 
+        vm.expectRevert(abi.encodeWithSelector(IBag.NotRequestOwner.selector, other));
         vm.prank(other);
+        _claimSingleERC20(bag, address(token), recipient, 5 ether);
+
+        vm.prank(owner);
         uint256 amount = _claimSingleERC20(bag, address(token), recipient, 5 ether)[0];
 
         assertEq(amount, 5 ether);
@@ -398,6 +449,17 @@ contract BagTest is Test {
         bag.claimERC721(address(nft), recipient_, tokenId);
 
         assertEq(nft.ownerOf(tokenId), recipient_);
+    }
+
+    function testClaimERC721RevertsOnReceiverReentrancy() public {
+        ReentrantERC721Claimer reentrantClaimer = new ReentrantERC721Claimer();
+        ownerRegistry.setOwner(requestId, address(reentrantClaimer));
+        nft.mint(address(bag), 7);
+        nft.mint(address(bag), 8);
+        reentrantClaimer.arm(bag, address(nft), 8);
+
+        vm.expectRevert(ReentrancyGuardUpgradeable.ReentrancyGuardReentrantCall.selector);
+        reentrantClaimer.claim(7);
     }
 
     function testClaimERC721RevertsWhenCallerIsNotRequestOwner() public {

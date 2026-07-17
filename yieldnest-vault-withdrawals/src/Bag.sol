@@ -6,12 +6,15 @@ import {IERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "lib/openzeppelin-contracts/contracts/utils/Address.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {IAuth} from "src/interface/IAuth.sol";
 
 /// @title Bag
-/// @notice Per-request asset container whose request NFT owner or approved operator can claim received assets.
-contract Bag is Initializable, IBag {
+/// @notice Per-request asset container whose current request NFT owner can claim received assets.
+contract Bag is Initializable, ReentrancyGuardUpgradeable, IBag {
     using SafeERC20 for IERC20;
     using Address for address payable;
 
@@ -38,9 +41,9 @@ contract Bag is Initializable, IBag {
         _disableInitializers();
     }
 
-    modifier onlyAuthorized() {
+    modifier onlyOwner() {
         BagStorage storage $ = _getBagStorage();
-        if (!$.ownerRegistry.isAuthorized(msg.sender, $.id)) revert NotRequestOwner(msg.sender);
+        if ($.ownerRegistry.ownerOf($.id) != msg.sender) revert NotRequestOwner(msg.sender);
         _;
     }
 
@@ -51,6 +54,8 @@ contract Bag is Initializable, IBag {
     /// @param id_ Withdrawal request id represented by this bag.
     function initialize(address ownerRegistry_, uint256 id_) external initializer {
         if (ownerRegistry_ == address(0)) revert ZeroAddress();
+
+        __ReentrancyGuard_init();
 
         BagStorage storage $ = _getBagStorage();
         $.ownerRegistry = IAuth(ownerRegistry_);
@@ -77,7 +82,8 @@ contract Bag is Initializable, IBag {
     /// @return amounts The amounts claimed.
     function claim(address[] calldata assets, address payable recipient, uint256[] calldata amounts)
         external
-        onlyAuthorized
+        onlyOwner
+        nonReentrant
         returns (uint256[] memory)
     {
         if (recipient == address(0)) revert ZeroAddress();
@@ -104,7 +110,7 @@ contract Bag is Initializable, IBag {
     /// @param asset ERC721 asset to claim.
     /// @param recipient Receiver of the claimed token.
     /// @param tokenId Token id to claim.
-    function claimERC721(address asset, address recipient, uint256 tokenId) external onlyAuthorized {
+    function claimERC721(address asset, address recipient, uint256 tokenId) external onlyOwner nonReentrant {
         if (asset == address(0) || recipient == address(0)) revert ZeroAddress();
 
         IERC721(asset).safeTransferFrom(address(this), recipient, tokenId);
