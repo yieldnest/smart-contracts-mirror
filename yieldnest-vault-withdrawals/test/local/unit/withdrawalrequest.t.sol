@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IAccessControl} from "lib/openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -17,7 +18,7 @@ import {IWithdrawer} from "src/interface/IWithdrawer.sol";
 import {Bag} from "src/Bag.sol";
 import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
+import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
 import {FixedRateWithdrawer} from "src/withdrawers/FixedRateWithdrawer.sol";
 import {SetupWithdrawalRequest} from "test/local/unit/helpers/SetupWithdrawalRequest.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
@@ -72,6 +73,28 @@ contract InKindWithdrawer is IWithdrawer {
 
     function convertToAssets(uint256 shares) external pure returns (uint256) {
         return shares;
+    }
+}
+
+contract DrainingWithdrawer is IWithdrawer {
+    using SafeERC20 for IERC20;
+
+    IERC20 internal immutable token;
+
+    constructor(address token_) {
+        token = IERC20(token_);
+    }
+
+    function drain(address owner, address recipient, uint256 amount) external {
+        token.safeTransferFrom(owner, recipient, amount);
+    }
+
+    function withdrawAsset(uint256, address, uint256, address, address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function convertToAssets(uint256) external pure returns (uint256) {
+        return 0;
     }
 }
 
@@ -305,7 +328,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
 
     function testRequestWithdrawalTransfersTokenAndRecordsRequest() public {
         vm.expectEmit(true, false, true, false, address(manager));
-        emit WithdrawalRequest.WithdrawalRequested(0, user, address(ynToken), address(0), 10 ether);
+        emit WithdrawalRequest.WithdrawalRequested(0, user, address(ynToken), address(0), 10 ether, "");
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -325,12 +348,13 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(manager.symbol(), "ynWREQ");
         assertEq(address(manager.withdrawer()), address(withdrawer));
         assertEq(address(manager.requestPolicy()), address(requestPolicy));
-        assertEq(ynToken.allowance(address(manager), address(withdrawer)), type(uint256).max);
+        assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
         assertTrue(manager.supportsInterface(type(IERC721Enumerable).interfaceId));
         assertEq(IBag(request.bag).ownerRegistry(), address(manager));
         assertEq(IBag(request.bag).id(), id);
         assertEq(request.amountLocked, 10 ether);
         assertEq(request.rateAtRequest, 1 ether);
+        assertEq(request.data.length, 0);
     }
 
     function testRequestWithdrawalRecordsRateAtCreation() public {
@@ -344,6 +368,68 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         WithdrawalRequest.Request memory request = manager.requests(id);
         assertEq(request.amountLocked, 10 ether);
         assertEq(request.rateAtRequest, 2 ether);
+    }
+
+    function testRequestWithdrawalStoresBoundedData() public {
+        bytes memory data = abi.encodePacked("integration-reference", uint256(42));
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user, data);
+
+        WithdrawalRequest.Request memory request = manager.requests(id);
+        assertEq(keccak256(request.data), keccak256(data));
+    }
+
+    function testRequestWithdrawalEmitsData() public {
+        bytes memory data = abi.encodePacked("event-data");
+
+        vm.recordLogs();
+        vm.prank(user);
+        manager.requestWithdrawal(10 ether, user, data);
+
+        bytes32 eventSignature = keccak256("WithdrawalRequested(uint256,address,address,address,uint256,bytes)");
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bool found;
+
+        for (uint256 i = 0; i < entries.length; ++i) {
+            if (entries[i].emitter != address(manager) || entries[i].topics[0] != eventSignature) continue;
+
+            (address bag, uint256 amountLocked, bytes memory emittedData) =
+                abi.decode(entries[i].data, (address, uint256, bytes));
+
+            assertEq(uint256(entries[i].topics[1]), 0);
+            assertEq(address(uint160(uint256(entries[i].topics[2]))), user);
+            assertEq(address(uint160(uint256(entries[i].topics[3]))), address(ynToken));
+            assertTrue(bag != address(0));
+            assertEq(amountLocked, 10 ether);
+            assertEq(keccak256(emittedData), keccak256(data));
+            found = true;
+        }
+
+        assertTrue(found);
+    }
+
+    function testRequestWithdrawalAllowsMaxLengthData() public {
+        bytes memory data = new bytes(manager.MAX_DATA_LENGTH());
+        data[0] = 0x01;
+        data[data.length - 1] = 0x02;
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user, data);
+
+        WithdrawalRequest.Request memory request = manager.requests(id);
+        assertEq(request.data.length, manager.MAX_DATA_LENGTH());
+        assertEq(keccak256(request.data), keccak256(data));
+    }
+
+    function testRequestWithdrawalRevertsWhenDataIsTooLong() public {
+        bytes memory data = new bytes(manager.MAX_DATA_LENGTH() + 1);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(WithdrawalRequest.DataTooLong.selector, data.length, manager.MAX_DATA_LENGTH())
+        );
+        vm.prank(user);
+        manager.requestWithdrawal(10 ether, user, data);
     }
 
     function testRequestWithdrawalCreatesBagForEachRequest() public {
@@ -397,8 +483,10 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testViewerReturnsFullRequestPicture() public {
+        bytes memory data = abi.encodePacked("ui-data");
+
         vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, receiver);
+        uint256 id = manager.requestWithdrawal(10 ether, receiver, data);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
         WithdrawalRequestViewer.RequestView memory view_ = viewer.getRequest(manager, id);
@@ -408,6 +496,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(view_.token, address(ynToken));
         assertEq(view_.amountLocked, 10 ether);
         assertEq(view_.rateAtRequest, 1 ether);
+        assertEq(keccak256(view_.data), keccak256(data));
         assertEq(view_.tokenBalance, 10 ether);
         assertEq(view_.assetBalances.length, 0);
     }
@@ -630,8 +719,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.setRequestPolicy(address(0));
     }
 
-    function testSetWithdrawerUpdatesWithdrawerAndApproval() public {
-        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+    function testSetWithdrawerUpdatesWithdrawerAndRevokesOldApproval() public {
+        LiveRateWithdrawer newWithdrawer = new LiveRateWithdrawer(address(ynToken), address(manager));
 
         vm.expectEmit(false, false, false, true, address(manager));
         emit WithdrawalRequest.WithdrawerUpdated(address(withdrawer), address(newWithdrawer));
@@ -641,11 +730,29 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
 
         assertEq(address(manager.withdrawer()), address(newWithdrawer));
         assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
-        assertEq(ynToken.allowance(address(manager), address(newWithdrawer)), type(uint256).max);
+        assertEq(ynToken.allowance(address(manager), address(newWithdrawer)), 0);
+    }
+
+    function testConfiguredWithdrawerCannotDrainLockedSharesOutsideResolution() public {
+        DrainingWithdrawer drainingWithdrawer = new DrainingWithdrawer(address(ynToken));
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(drainingWithdrawer));
+
+        vm.prank(user);
+        manager.requestWithdrawal(10 ether, user);
+
+        assertEq(ynToken.allowance(address(manager), address(drainingWithdrawer)), 0);
+
+        vm.expectRevert();
+        drainingWithdrawer.drain(address(manager), collector, 10 ether);
+
+        assertEq(ynToken.balanceOf(address(manager)), 10 ether);
+        assertEq(ynToken.balanceOf(collector), 0);
     }
 
     function testSetWithdrawerRequiresConfigurationManagerRole() public {
-        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+        LiveRateWithdrawer newWithdrawer = new LiveRateWithdrawer(address(ynToken), address(manager));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -662,21 +769,21 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.setWithdrawer(address(0));
     }
 
-    function testBaseWithdrawerConstructorRevertsForZeroAddresses() public {
-        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
-        new BaseWithdrawer(address(0), address(manager));
+    function testLiveRateWithdrawerConstructorRevertsForZeroAddresses() public {
+        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
+        new LiveRateWithdrawer(address(0), address(manager));
 
-        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
-        new BaseWithdrawer(address(ynToken), address(0));
+        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
+        new LiveRateWithdrawer(address(ynToken), address(0));
     }
 
-    function testBaseWithdrawerRejectsUnauthorizedCaller() public {
-        vm.expectRevert(abi.encodeWithSelector(BaseWithdrawer.Unauthorized.selector, user));
+    function testLiveRateWithdrawerRejectsUnauthorizedCaller() public {
+        vm.expectRevert(abi.encodeWithSelector(LiveRateWithdrawer.Unauthorized.selector, user));
         vm.prank(user);
         withdrawer.withdrawAsset(0, address(asset), 1 ether, user, address(manager));
     }
 
-    function testBaseWithdrawerForwardsWithdrawalAndReturnsBurnedShares() public {
+    function testLiveRateWithdrawerForwardsWithdrawalAndReturnsBurnedShares() public {
         ynToken.mint(address(manager), 2 ether);
 
         vm.prank(address(manager));
@@ -687,7 +794,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(ynToken.balanceOf(address(manager)), 0);
     }
 
-    function testBaseWithdrawerConvertToAssetsUsesVaultRate() public view {
+    function testLiveRateWithdrawerConvertToAssetsUsesVaultRate() public view {
         assertEq(withdrawer.convertToAssets(1 ether), 1 ether);
     }
 
@@ -803,6 +910,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
 
         assertEq(amountBurned, 4 ether);
         assertEq(ynToken.balanceOf(address(manager)), 6 ether);
+        assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
         assertEq(asset.balanceOf(address(manager)), 0);
         request = manager.requests(id);
         assertEq(asset.balanceOf(request.bag), 4 ether);
@@ -971,7 +1079,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         vm.expectRevert(FixedRateWithdrawer.InvalidRate.selector);
         new FixedRateWithdrawer(address(ynToken), address(manager), 0, collector);
 
-        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
+        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
         new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, address(0));
     }
 

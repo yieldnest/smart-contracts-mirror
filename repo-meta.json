@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "7d83156c36231f4a3e107f4e8be93516a20bee35",
-      "commit_message": "Move withdrawal request configuration section"
+      "commit": "fb3ed8a607bc1d8876ffb66445f3ea7af6c8afb4",
+      "commit_message": "Add bounded request data"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

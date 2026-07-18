@@ -12,7 +12,7 @@ import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
+import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract ViewerVaultMock is ERC20 {
@@ -126,7 +126,7 @@ contract WithdrawalRequestViewerTest is Test {
 
         WithdrawalRequest implementation = new WithdrawalRequest();
         address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        BaseWithdrawer withdrawer = new BaseWithdrawer(address(ynToken), predictedManager);
+        LiveRateWithdrawer withdrawer = new LiveRateWithdrawer(address(ynToken), predictedManager);
         MinAmountRequestPolicy requestPolicy = new MinAmountRequestPolicy(1 ether);
         manager = WithdrawalRequest(
             address(
@@ -185,8 +185,10 @@ contract WithdrawalRequestViewerTest is Test {
     }
 
     function testGetRequestReturnsOwnerBagTokenAndAssetBalances() public {
+        bytes memory data = abi.encodePacked("viewer-data");
+
         vm.prank(user);
-        uint256 id = manager.requestWithdrawal(10 ether, receiver);
+        uint256 id = manager.requestWithdrawal(10 ether, receiver, data);
 
         vm.prank(resolver);
         manager.resolveWithdrawalRequest(id, address(asset), 4 ether);
@@ -200,6 +202,7 @@ contract WithdrawalRequestViewerTest is Test {
         assertEq(view_.token, address(ynToken));
         assertEq(view_.amountLocked, 6 ether);
         assertEq(view_.rateAtRequest, 1 ether);
+        assertEq(keccak256(view_.data), keccak256(data));
         assertEq(view_.tokenBalance, 6 ether);
         assertFalse(view_.isClaimable);
         assertFalse(view_.isClaimed);
