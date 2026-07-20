@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "fb3ed8a607bc1d8876ffb66445f3ea7af6c8afb4",
-      "commit_message": "Add bounded request data"
+      "commit": "453be10be56b8401acf123668297f3e0d8839b47",
+      "commit_message": "Allow burning claimed withdrawal requests"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
