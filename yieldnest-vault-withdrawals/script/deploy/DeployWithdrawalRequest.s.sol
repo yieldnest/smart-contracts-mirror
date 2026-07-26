@@ -2,30 +2,33 @@
 pragma solidity ^0.8.24;
 
 import {TimelockController} from "lib/openzeppelin-contracts/contracts/governance/TimelockController.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Strings} from "lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import {MainnetContracts as MC} from "lib/yieldnest-vault/script/Contracts.sol";
 import {BaseScript} from "lib/yieldnest-vault/script/BaseScript.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract DeployWithdrawalRequest is BaseScript {
     uint256 public constant MIN_WITHDRAWAL_AMOUNT = 0.0001 ether;
+    uint256 public constant MAX_DATA_LENGTH = 1024;
 
     Bag public bagImplementation;
     BeaconProxyFactory public bagFactoryImplementation;
     BeaconProxyFactory public bagFactory;
-    LiveRateWithdrawer public requestWithdrawer;
+    BaseWithdrawer public requestWithdrawer;
     MinAmountRequestPolicy public requestPolicy;
     WithdrawalRequest public requestImplementation;
     WithdrawalRequest public withdrawalRequest;
     WithdrawalRequestViewer public withdrawalRequestViewer;
-    ERC1967Proxy public bagFactoryProxy;
-    ERC1967Proxy public proxy;
+    TransparentUpgradeableProxy public bagFactoryProxy;
+    TransparentUpgradeableProxy public proxy;
 
     address public token;
     address public defaultAdmin;
@@ -60,18 +63,20 @@ contract DeployWithdrawalRequest is BaseScript {
 
         bagImplementation = new Bag();
         bagFactoryImplementation = new BeaconProxyFactory();
-        bagFactoryProxy = new ERC1967Proxy(
+        bagFactoryProxy = new TransparentUpgradeableProxy(
             address(bagFactoryImplementation),
+            defaultAdmin,
             abi.encodeCall(
                 BeaconProxyFactory.initialize, (address(bagImplementation), defaultAdmin, predictedProxy, defaultAdmin)
             )
         );
         bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
-        requestWithdrawer = new LiveRateWithdrawer(token, predictedProxy);
+        requestWithdrawer = new BaseWithdrawer(token, predictedProxy);
         requestPolicy = new MinAmountRequestPolicy(MIN_WITHDRAWAL_AMOUNT);
         requestImplementation = new WithdrawalRequest();
-        proxy = new ERC1967Proxy(
+        proxy = new TransparentUpgradeableProxy(
             address(requestImplementation),
+            defaultAdmin,
             abi.encodeCall(
                 WithdrawalRequest.initialize,
                 (
@@ -82,7 +87,8 @@ contract DeployWithdrawalRequest is BaseScript {
                     pauser,
                     address(bagFactory),
                     address(requestWithdrawer),
-                    address(requestPolicy)
+                    address(requestPolicy),
+                    MAX_DATA_LENGTH
                 )
             )
         );
@@ -141,6 +147,7 @@ contract DeployWithdrawalRequest is BaseScript {
         }
         if (address(withdrawalRequest.withdrawer()) != address(requestWithdrawer)) revert InvalidSetup();
         if (address(withdrawalRequest.requestPolicy()) != address(requestPolicy)) revert InvalidSetup();
+        if (withdrawalRequest.maxDataLength() != MAX_DATA_LENGTH) revert InvalidSetup();
         if (!bagFactory.hasRole(bagFactory.DEFAULT_ADMIN_ROLE(), address(timelock))) revert InvalidSetup();
         if (!bagFactory.hasRole(bagFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock))) {
             revert InvalidSetup();
@@ -175,6 +182,7 @@ contract DeployWithdrawalRequest is BaseScript {
         vm.serializeAddress(symbol(), "viewer", address(withdrawalRequestViewer));
         vm.serializeAddress(symbol(), "token", token);
         vm.serializeUint(symbol(), "minWithdrawalAmount", MIN_WITHDRAWAL_AMOUNT);
+        vm.serializeUint(symbol(), "maxDataLength", MAX_DATA_LENGTH);
         vm.serializeUint(symbol(), "timelockMinDelay", minDelay);
         vm.serializeAddress(symbol(), "defaultAdmin", defaultAdmin);
         vm.serializeAddress(symbol(), "resolver", resolver);

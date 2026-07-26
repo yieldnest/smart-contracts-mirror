@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -10,9 +12,9 @@ import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
 import {IBag} from "src/interface/IBag.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract ViewerVaultMock is ERC20 {
@@ -106,6 +108,7 @@ contract WithdrawalRequestViewerTest is Test {
     address user = address(0xB0B);
     address receiver = address(0xCA11);
     address other = address(0xCAFE);
+    uint256 maxDataLength = 1024;
 
     function setUp() public {
         ynToken = new ViewerVaultMock();
@@ -117,8 +120,9 @@ contract WithdrawalRequestViewerTest is Test {
         BeaconProxyFactory bagFactoryImplementation = new BeaconProxyFactory();
         bagFactory = BeaconProxyFactory(
             address(
-                new ERC1967Proxy(
+                new TransparentUpgradeableProxy(
                     address(bagFactoryImplementation),
+                    admin,
                     abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), admin, admin, admin))
                 )
             )
@@ -126,12 +130,13 @@ contract WithdrawalRequestViewerTest is Test {
 
         WithdrawalRequest implementation = new WithdrawalRequest();
         address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        LiveRateWithdrawer withdrawer = new LiveRateWithdrawer(address(ynToken), predictedManager);
+        BaseWithdrawer withdrawer = new BaseWithdrawer(address(ynToken), predictedManager);
         MinAmountRequestPolicy requestPolicy = new MinAmountRequestPolicy(1 ether);
         manager = WithdrawalRequest(
             address(
-                new ERC1967Proxy(
+                new TransparentUpgradeableProxy(
                     address(implementation),
+                    admin,
                     abi.encodeCall(
                         WithdrawalRequest.initialize,
                         (
@@ -142,7 +147,8 @@ contract WithdrawalRequestViewerTest is Test {
                             pauser,
                             address(bagFactory),
                             address(withdrawer),
-                            address(requestPolicy)
+                            address(requestPolicy),
+                            maxDataLength
                         )
                     )
                 )

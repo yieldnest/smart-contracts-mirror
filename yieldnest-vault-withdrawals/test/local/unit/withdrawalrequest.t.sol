@@ -3,7 +3,9 @@ pragma solidity ^0.8.24;
 
 import {IAccessControl} from "lib/openzeppelin-contracts/contracts/access/IAccessControl.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Enumerable} from "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
@@ -16,9 +18,9 @@ import {
 import {IBag} from "src/interface/IBag.sol";
 import {IWithdrawer} from "src/interface/IWithdrawer.sol";
 import {Bag} from "src/Bag.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {FixedRateWithdrawer} from "src/withdrawers/FixedRateWithdrawer.sol";
 import {SetupWithdrawalRequest} from "test/local/unit/helpers/SetupWithdrawalRequest.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
@@ -184,11 +186,22 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         address pauser_,
         address bagFactory_,
         address withdrawer_,
-        address requestPolicy_
+        address requestPolicy_,
+        uint256 maxDataLength_
     ) internal pure returns (bytes memory) {
         return abi.encodeCall(
             WithdrawalRequest.initialize,
-            (token_, admin_, resolver_, configurationManager_, pauser_, bagFactory_, withdrawer_, requestPolicy_)
+            (
+                token_,
+                admin_,
+                resolver_,
+                configurationManager_,
+                pauser_,
+                bagFactory_,
+                withdrawer_,
+                requestPolicy_,
+                maxDataLength_
+            )
         );
     }
 
@@ -200,15 +213,25 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         address pauser_,
         address bagFactory_,
         address withdrawer_,
-        address requestPolicy_
+        address requestPolicy_,
+        uint256 maxDataLength_
     ) internal {
         WithdrawalRequest implementation = new WithdrawalRequest();
 
         vm.expectRevert(WithdrawalRequest.ZeroAddress.selector);
-        new ERC1967Proxy(
+        new TransparentUpgradeableProxy(
             address(implementation),
+            admin_,
             _defaultInitializeCall(
-                token_, admin_, resolver_, configurationManager_, pauser_, bagFactory_, withdrawer_, requestPolicy_
+                token_,
+                admin_,
+                resolver_,
+                configurationManager_,
+                pauser_,
+                bagFactory_,
+                withdrawer_,
+                requestPolicy_,
+                maxDataLength_
             )
         );
     }
@@ -225,7 +248,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
     }
 
@@ -239,7 +263,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
     }
 
@@ -252,7 +277,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -262,7 +288,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -272,7 +299,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -282,7 +310,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -292,7 +321,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             address(0),
             address(bagFactory),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -302,7 +332,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(0),
             address(withdrawer),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -312,7 +343,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(0),
-            address(requestPolicy)
+            address(requestPolicy),
+            maxDataLength
         );
         _expectInitializeRevertsForZeroAddress(
             address(ynToken),
@@ -322,7 +354,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
             pauser,
             address(bagFactory),
             address(withdrawer),
-            address(0)
+            address(0),
+            maxDataLength
         );
     }
 
@@ -348,6 +381,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(manager.symbol(), "ynWREQ");
         assertEq(address(manager.withdrawer()), address(withdrawer));
         assertEq(address(manager.requestPolicy()), address(requestPolicy));
+        assertEq(manager.maxDataLength(), maxDataLength);
         assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
         assertTrue(manager.supportsInterface(type(IERC721Enumerable).interfaceId));
         assertEq(IBag(request.bag).ownerRegistry(), address(manager));
@@ -410,7 +444,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testRequestWithdrawalAllowsMaxLengthData() public {
-        bytes memory data = new bytes(manager.MAX_DATA_LENGTH());
+        bytes memory data = new bytes(manager.maxDataLength());
         data[0] = 0x01;
         data[data.length - 1] = 0x02;
 
@@ -418,15 +452,15 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         uint256 id = manager.requestWithdrawal(10 ether, user, data);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
-        assertEq(request.data.length, manager.MAX_DATA_LENGTH());
+        assertEq(request.data.length, manager.maxDataLength());
         assertEq(keccak256(request.data), keccak256(data));
     }
 
     function testRequestWithdrawalRevertsWhenDataIsTooLong() public {
-        bytes memory data = new bytes(manager.MAX_DATA_LENGTH() + 1);
+        bytes memory data = new bytes(manager.maxDataLength() + 1);
 
         vm.expectRevert(
-            abi.encodeWithSelector(WithdrawalRequest.DataTooLong.selector, data.length, manager.MAX_DATA_LENGTH())
+            abi.encodeWithSelector(WithdrawalRequest.DataTooLong.selector, data.length, manager.maxDataLength())
         );
         vm.prank(user);
         manager.requestWithdrawal(10 ether, user, data);
@@ -777,8 +811,58 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.setRequestPolicy(address(0));
     }
 
+    function testSetMaxDataLengthRequiresConfigurationManagerRole() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, manager.CONFIGURATION_MANAGER_ROLE()
+            )
+        );
+        vm.prank(user);
+        manager.setMaxDataLength(64);
+    }
+
+    function testSetMaxDataLengthUpdatesLimitAndEmits() public {
+        vm.expectEmit(false, false, false, true, address(manager));
+        emit WithdrawalRequest.MaxDataLengthUpdated(maxDataLength, 64);
+
+        vm.prank(configurationManager);
+        manager.setMaxDataLength(64);
+
+        assertEq(manager.maxDataLength(), 64);
+    }
+
+    function testSetMaxDataLengthUpdatesRequestValidation() public {
+        vm.prank(configurationManager);
+        manager.setMaxDataLength(4);
+
+        bytes memory tooLong = new bytes(5);
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.DataTooLong.selector, tooLong.length, 4));
+        vm.prank(user);
+        manager.requestWithdrawal(10 ether, user, tooLong);
+
+        bytes memory allowed = new bytes(4);
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user, allowed);
+
+        assertEq(manager.requests(id).data.length, 4);
+    }
+
+    function testSetMaxDataLengthCanDisableNonEmptyData() public {
+        vm.prank(configurationManager);
+        manager.setMaxDataLength(0);
+
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.DataTooLong.selector, 1, 0));
+        vm.prank(user);
+        manager.requestWithdrawal(10 ether, user, hex"01");
+
+        vm.prank(user);
+        uint256 id = manager.requestWithdrawal(10 ether, user);
+
+        assertEq(manager.requests(id).data.length, 0);
+    }
+
     function testSetWithdrawerUpdatesWithdrawerAndRevokesOldApproval() public {
-        LiveRateWithdrawer newWithdrawer = new LiveRateWithdrawer(address(ynToken), address(manager));
+        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
 
         vm.expectEmit(false, false, false, true, address(manager));
         emit WithdrawalRequest.WithdrawerUpdated(address(withdrawer), address(newWithdrawer));
@@ -810,7 +894,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testSetWithdrawerRequiresConfigurationManagerRole() public {
-        LiveRateWithdrawer newWithdrawer = new LiveRateWithdrawer(address(ynToken), address(manager));
+        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -827,21 +911,21 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.setWithdrawer(address(0));
     }
 
-    function testLiveRateWithdrawerConstructorRevertsForZeroAddresses() public {
-        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
-        new LiveRateWithdrawer(address(0), address(manager));
+    function testBaseWithdrawerConstructorRevertsForZeroAddresses() public {
+        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
+        new BaseWithdrawer(address(0), address(manager));
 
-        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
-        new LiveRateWithdrawer(address(ynToken), address(0));
+        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
+        new BaseWithdrawer(address(ynToken), address(0));
     }
 
-    function testLiveRateWithdrawerRejectsUnauthorizedCaller() public {
-        vm.expectRevert(abi.encodeWithSelector(LiveRateWithdrawer.Unauthorized.selector, user));
+    function testBaseWithdrawerRejectsUnauthorizedCaller() public {
+        vm.expectRevert(abi.encodeWithSelector(BaseWithdrawer.Unauthorized.selector, user));
         vm.prank(user);
         withdrawer.withdrawAsset(0, address(asset), 1 ether, user, address(manager));
     }
 
-    function testLiveRateWithdrawerForwardsWithdrawalAndReturnsBurnedShares() public {
+    function testBaseWithdrawerForwardsWithdrawalAndReturnsBurnedShares() public {
         ynToken.mint(address(manager), 2 ether);
 
         vm.prank(address(manager));
@@ -852,7 +936,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(ynToken.balanceOf(address(manager)), 0);
     }
 
-    function testLiveRateWithdrawerConvertToAssetsUsesVaultRate() public view {
+    function testBaseWithdrawerConvertToAssetsUsesVaultRate() public view {
         assertEq(withdrawer.convertToAssets(1 ether), 1 ether);
     }
 
@@ -1137,7 +1221,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         vm.expectRevert(FixedRateWithdrawer.InvalidRate.selector);
         new FixedRateWithdrawer(address(ynToken), address(manager), 0, collector);
 
-        vm.expectRevert(LiveRateWithdrawer.ZeroAddress.selector);
+        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
         new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, address(0));
     }
 

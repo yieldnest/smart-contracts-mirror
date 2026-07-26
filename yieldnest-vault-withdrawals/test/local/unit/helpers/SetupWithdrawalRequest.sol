@@ -2,16 +2,18 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract MockWithdrawAssetVault is ERC20 {
@@ -21,6 +23,7 @@ contract MockWithdrawAssetVault is ERC20 {
     uint256 public returnAmountOffset;
     uint256 public transferShortfall;
     uint256 public convertToAssetsRate = 1 ether;
+    uint256 public assetRate = 1 ether;
     address[] internal assetList;
 
     constructor() ERC20("ynToken", "ynT") {}
@@ -43,6 +46,10 @@ contract MockWithdrawAssetVault is ERC20 {
 
     function setConvertToAssetsRate(uint256 convertToAssetsRate_) external {
         convertToAssetsRate = convertToAssetsRate_;
+    }
+
+    function setAssetRate(uint256 assetRate_) external {
+        assetRate = assetRate_;
     }
 
     function setAssets(address[] memory assets_) external {
@@ -83,8 +90,8 @@ contract MockWithdrawAssetVault is ERC20 {
         return assetList[0];
     }
 
-    function getRate(address) external pure returns (uint256) {
-        return 1 ether;
+    function getRate(address) external view returns (uint256) {
+        return assetRate;
     }
 
     function convertToAssets(uint256 shares) external view returns (uint256 assets) {
@@ -108,7 +115,7 @@ contract SetupWithdrawalRequest is Test {
     WithdrawalAssetMock asset;
     WithdrawalAssetMock secondAsset;
     WithdrawalRequestViewer viewer;
-    LiveRateWithdrawer withdrawer;
+    BaseWithdrawer withdrawer;
     MinAmountRequestPolicy requestPolicy;
     Bag bagImplementation;
     BeaconProxyFactory bagFactoryImplementation;
@@ -122,6 +129,7 @@ contract SetupWithdrawalRequest is Test {
     address receiver = address(0xCA11);
     address collector = address(0xC011EC7);
     uint256 minWithdrawalAmount = 1 ether;
+    uint256 maxDataLength = 1024;
 
     function setUpWithdrawalRequest() public virtual {
         ynToken = new MockWithdrawAssetVault();
@@ -130,18 +138,20 @@ contract SetupWithdrawalRequest is Test {
         viewer = new WithdrawalRequestViewer();
         bagImplementation = new Bag();
         bagFactoryImplementation = new BeaconProxyFactory();
-        ERC1967Proxy bagFactoryProxy = new ERC1967Proxy(
+        TransparentUpgradeableProxy bagFactoryProxy = new TransparentUpgradeableProxy(
             address(bagFactoryImplementation),
+            admin,
             abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), admin, admin, admin))
         );
         bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
 
         WithdrawalRequest implementation = new WithdrawalRequest();
         address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        withdrawer = new LiveRateWithdrawer(address(ynToken), predictedManager);
+        withdrawer = new BaseWithdrawer(address(ynToken), predictedManager);
         requestPolicy = new MinAmountRequestPolicy(minWithdrawalAmount);
-        ERC1967Proxy proxy = new ERC1967Proxy(
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
+            admin,
             abi.encodeCall(
                 WithdrawalRequest.initialize,
                 (
@@ -152,7 +162,8 @@ contract SetupWithdrawalRequest is Test {
                     pauser,
                     address(bagFactory),
                     address(withdrawer),
-                    address(requestPolicy)
+                    address(requestPolicy),
+                    maxDataLength
                 )
             )
         );

@@ -2,32 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {IProvider} from "lib/yieldnest-vault/src/interface/IProvider.sol";
 import {IVault} from "lib/yieldnest-vault/src/interface/IVault.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-
-interface IWithdrawalRequestViewerVault is IERC20, IERC20Metadata {
-    /// @notice Returns vault configuration for an asset.
-    /// @param asset_ Asset to query.
-    /// @return Asset parameters recorded by the vault.
-    function getAsset(address asset_) external view returns (IVault.AssetParams memory);
-
-    /// @notice Returns the vault rate provider.
-    /// @return Provider address.
-    function provider() external view returns (address);
-
-    /// @notice Returns total vault assets in base units.
-    /// @return Total base assets.
-    function totalBaseAssets() external view returns (uint256);
-}
+import {VaultMath} from "src/library/VaultMath.sol";
 
 /// @title WithdrawalRequestViewer
 /// @notice Read-only helper for request, bag, and vault asset balances.
 contract WithdrawalRequestViewer {
-    using Math for uint256;
-
     struct AssetBalance {
         address asset;
         uint256 balance;
@@ -57,7 +38,7 @@ contract WithdrawalRequestViewer {
         returns (RequestView memory view_)
     {
         WithdrawalRequest.Request memory request = withdrawalRequest.requests(id);
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
+        IVault token = IVault(address(withdrawalRequest.token()));
 
         view_ = _getRequest(id, request, token, withdrawalRequest);
     }
@@ -71,7 +52,7 @@ contract WithdrawalRequestViewer {
         view
         returns (RequestView[] memory requests_)
     {
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
+        IVault token = IVault(address(withdrawalRequest.token()));
         uint256 count = withdrawalRequest.balanceOf(owner);
 
         requests_ = new RequestView[](count);
@@ -84,7 +65,7 @@ contract WithdrawalRequestViewer {
     function _getRequest(
         uint256 id,
         WithdrawalRequest.Request memory request,
-        IWithdrawalRequestViewerVault token,
+        IVault token,
         WithdrawalRequest withdrawalRequest
     ) internal view returns (RequestView memory view_) {
         AssetBalance[] memory assetBalances = new AssetBalance[](request.assetsRedeemed.length);
@@ -120,7 +101,7 @@ contract WithdrawalRequestViewer {
         if (!withdrawalRequest.requestExists(id)) return false;
 
         WithdrawalRequest.Request memory request = withdrawalRequest.requests(id);
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
+        IVault token = IVault(address(withdrawalRequest.token()));
 
         return _requestIsClaimable(request, token);
     }
@@ -133,24 +114,16 @@ contract WithdrawalRequestViewer {
         if (!withdrawalRequest.requestExists(id)) return false;
 
         WithdrawalRequest.Request memory request = withdrawalRequest.requests(id);
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
+        IVault token = IVault(address(withdrawalRequest.token()));
 
         return _requestIsClaimed(request, token);
     }
 
-    function _requestIsClaimable(WithdrawalRequest.Request memory request, IWithdrawalRequestViewerVault token)
-        internal
-        view
-        returns (bool)
-    {
+    function _requestIsClaimable(WithdrawalRequest.Request memory request, IVault token) internal view returns (bool) {
         return request.amountLocked < 10 ** token.decimals() / 1e4;
     }
 
-    function _requestIsClaimed(WithdrawalRequest.Request memory request, IWithdrawalRequestViewerVault token)
-        internal
-        view
-        returns (bool)
-    {
+    function _requestIsClaimed(WithdrawalRequest.Request memory request, IVault token) internal view returns (bool) {
         if (!_requestIsClaimable(request, token)) return false;
 
         for (uint256 i = 0; i < request.assetsRedeemed.length; ++i) {
@@ -171,19 +144,13 @@ contract WithdrawalRequestViewer {
         view
         returns (uint256 assets)
     {
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
-        uint256 totalSupply = token.totalSupply();
-        uint256 totalBaseAssets = token.totalBaseAssets();
-        uint256 baseAssets = shares.mulDiv(totalBaseAssets + 1, totalSupply + 1, Math.Rounding.Floor);
-
-        IVault.AssetParams memory assetParams = token.getAsset(asset);
-        uint256 rate = IProvider(token.provider()).getRate(asset);
-        assets = baseAssets.mulDiv(10 ** assetParams.decimals, rate, Math.Rounding.Floor);
+        IVault token = IVault(address(withdrawalRequest.token()));
+        assets = VaultMath.convertToAssets(token, asset, shares);
     }
 
     /// @notice Converts yn-token shares to default-asset units using the configured redemption withdrawer.
     /// @dev This reflects the rate that the current withdrawer applies for redemption UI display.
-    /// For `LiveRateWithdrawer`, this delegates to the vault's ERC4626-style `convertToAssets`.
+    /// For `BaseWithdrawer`, this delegates to the vault's ERC4626-style `convertToAssets`.
     /// For fixed-rate withdrawers, this returns the assets implied by the fixed redemption rate.
     /// It is intentionally separate from `convertToAssets`, which estimates per-asset resolution amounts.
     /// @param withdrawalRequest Withdrawal request contract whose configured withdrawer provides the redemption rate.
@@ -216,7 +183,7 @@ contract WithdrawalRequestViewer {
         returns (uint256 assets)
     {
         WithdrawalRequest.Request memory request = withdrawalRequest.requests(id);
-        IWithdrawalRequestViewerVault token = IWithdrawalRequestViewerVault(address(withdrawalRequest.token()));
+        IVault token = IVault(address(withdrawalRequest.token()));
 
         assets = convertToAssets(withdrawalRequest, asset, request.amountLocked);
 

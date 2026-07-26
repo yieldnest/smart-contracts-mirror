@@ -6,9 +6,9 @@ import {TimelockController} from "lib/openzeppelin-contracts/contracts/governanc
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {MainnetContracts as MC} from "lib/yieldnest-vault/script/Contracts.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {DeployWithdrawalRequest} from "script/deploy/DeployWithdrawalRequest.s.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
@@ -29,7 +29,7 @@ contract DeployWithdrawalRequestTest is Test {
         TimelockController timelock = deployScript.timelock();
         WithdrawalRequest manager = deployScript.withdrawalRequest();
         BeaconProxyFactory bagFactory = deployScript.bagFactory();
-        LiveRateWithdrawer withdrawer = deployScript.requestWithdrawer();
+        BaseWithdrawer withdrawer = deployScript.requestWithdrawer();
         MinAmountRequestPolicy requestPolicy = deployScript.requestPolicy();
         assertGt(address(viewer).code.length, 0);
         assertGt(address(withdrawer).code.length, 0);
@@ -46,6 +46,7 @@ contract DeployWithdrawalRequestTest is Test {
         assertTrue(manager.hasRole(manager.RESOLVER_ROLE(), deployScript.resolver()));
         assertEq(address(manager.withdrawer()), address(withdrawer));
         assertEq(address(manager.requestPolicy()), address(requestPolicy));
+        assertEq(manager.maxDataLength(), deployScript.MAX_DATA_LENGTH());
         assertTrue(bagFactory.hasRole(bagFactory.DEFAULT_ADMIN_ROLE(), address(timelock)));
         assertTrue(bagFactory.hasRole(bagFactory.IMPLEMENTATION_MANAGER_ROLE(), address(timelock)));
 
@@ -68,6 +69,7 @@ contract DeployWithdrawalRequestTest is Test {
         assertEq(vm.parseJsonAddress(deploymentJson, ".resolver"), deployScript.resolver());
         assertEq(vm.parseJsonAddress(deploymentJson, ".configurationManager"), address(timelock));
         assertEq(vm.parseJsonUint(deploymentJson, ".minWithdrawalAmount"), deployScript.MIN_WITHDRAWAL_AMOUNT());
+        assertEq(vm.parseJsonUint(deploymentJson, ".maxDataLength"), deployScript.MAX_DATA_LENGTH());
         assertEq(vm.parseJsonUint(deploymentJson, ".timelockMinDelay"), deployScript.minDelay());
 
         vm.removeFile(deploymentFilePath);

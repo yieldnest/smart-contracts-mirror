@@ -4,17 +4,11 @@ pragma solidity ^0.8.24;
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
-
-interface IDefaultAssetVault {
-    /// @notice Returns the vault default asset.
-    /// @return Default asset address.
-    function asset() external view returns (address);
-}
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 
 /// @title FixedRateWithdrawer
 /// @notice Withdrawer adapter that enforces a minimum redemption rate for the vault default asset.
-contract FixedRateWithdrawer is LiveRateWithdrawer {
+contract FixedRateWithdrawer is BaseWithdrawer {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
@@ -30,7 +24,7 @@ contract FixedRateWithdrawer is LiveRateWithdrawer {
     /// @param fixedRate_ Fixed default-asset amount per whole share unit.
     /// @param collector_ Receiver of shares charged above the vault-burned amount.
     constructor(address token_, address withdrawalRequest_, uint256 fixedRate_, address collector_)
-        LiveRateWithdrawer(token_, withdrawalRequest_)
+        BaseWithdrawer(token_, withdrawalRequest_)
     {
         if (fixedRate_ == 0) revert InvalidRate();
         if (collector_ == address(0)) revert ZeroAddress();
@@ -48,19 +42,18 @@ contract FixedRateWithdrawer is LiveRateWithdrawer {
     function withdrawAsset(uint256, address asset, uint256 assets, address receiver, address owner)
         external
         override
+        onlyWithdrawalRequest
         returns (uint256 shares)
     {
-        _checkWithdrawalRequest();
-
-        address defaultAsset = IDefaultAssetVault(address(token)).asset();
+        address defaultAsset = token().asset();
         if (asset != defaultAsset) revert InvalidAsset(asset);
 
         uint256 fixedRateShares = _convertToShares(assets);
 
-        uint256 sharesBurned = token.withdrawAsset(asset, assets, receiver, owner);
+        uint256 sharesBurned = token().withdrawAsset(asset, assets, receiver, owner);
         if (fixedRateShares <= sharesBurned) return sharesBurned;
 
-        IERC20(address(token)).safeTransferFrom(owner, collector, fixedRateShares - sharesBurned);
+        IERC20(address(token())).safeTransferFrom(owner, collector, fixedRateShares - sharesBurned);
         return fixedRateShares;
     }
 
@@ -76,6 +69,6 @@ contract FixedRateWithdrawer is LiveRateWithdrawer {
     }
 
     function _shareUnit() internal view returns (uint256) {
-        return 10 ** token.decimals();
+        return 10 ** token().decimals();
     }
 }

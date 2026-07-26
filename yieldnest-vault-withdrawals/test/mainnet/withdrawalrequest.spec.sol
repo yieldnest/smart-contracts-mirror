@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import {ERC1967Proxy} from "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {BaseVault} from "lib/yieldnest-vault/src/BaseVault.sol";
@@ -12,16 +14,16 @@ import {MainnetContracts as MC} from "lib/yieldnest-vault/script/Contracts.sol";
 import {IBag} from "src/interface/IBag.sol";
 import {Bag} from "src/Bag.sol";
 import {BeaconProxyFactory} from "src/BeaconProxyFactory.sol";
-import {MinAmountRequestPolicy} from "src/request-policies/MinAmountRequestPolicy.sol";
+import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
-import {LiveRateWithdrawer} from "src/withdrawers/LiveRateWithdrawer.sol";
+import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
 contract WithdrawalRequestMainnetTest is Test, Actors {
     BaseVault public vault;
     WithdrawalRequest public manager;
     WithdrawalRequestViewer public viewer;
-    LiveRateWithdrawer public withdrawer;
+    BaseWithdrawer public withdrawer;
     MinAmountRequestPolicy public requestPolicy;
     Bag public bagImplementation;
     BeaconProxyFactory public bagFactoryImplementation;
@@ -33,6 +35,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
     address public pauser;
 
     uint256 public constant MIN_WITHDRAWAL_AMOUNT = 1e15;
+    uint256 public constant MAX_DATA_LENGTH = 1024;
 
     function setUp() public {
         vault = BaseVault(payable(MC.YNETHX));
@@ -45,18 +48,20 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
 
         bagImplementation = new Bag();
         bagFactoryImplementation = new BeaconProxyFactory();
-        ERC1967Proxy bagFactoryProxy = new ERC1967Proxy(
+        TransparentUpgradeableProxy bagFactoryProxy = new TransparentUpgradeableProxy(
             address(bagFactoryImplementation),
+            ADMIN,
             abi.encodeCall(BeaconProxyFactory.initialize, (address(bagImplementation), ADMIN, ADMIN, ADMIN))
         );
         bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
 
         WithdrawalRequest implementation = new WithdrawalRequest();
         address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        withdrawer = new LiveRateWithdrawer(address(vault), predictedManager);
+        withdrawer = new BaseWithdrawer(address(vault), predictedManager);
         requestPolicy = new MinAmountRequestPolicy(MIN_WITHDRAWAL_AMOUNT);
-        ERC1967Proxy proxy = new ERC1967Proxy(
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
+            ADMIN,
             abi.encodeCall(
                 WithdrawalRequest.initialize,
                 (
@@ -67,7 +72,8 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
                     pauser,
                     address(bagFactory),
                     address(withdrawer),
-                    address(requestPolicy)
+                    address(requestPolicy),
+                    MAX_DATA_LENGTH
                 )
             )
         );

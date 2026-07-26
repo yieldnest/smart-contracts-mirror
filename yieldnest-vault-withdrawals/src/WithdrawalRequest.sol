@@ -10,7 +10,6 @@ import {
     ERC721EnumerableUpgradeable
 } from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import {ERC721Upgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
-import {IERC20Metadata} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {
@@ -23,23 +22,7 @@ import {IResolver} from "src/interface/IResolver.sol";
 import {IFactory} from "src/interface/IFactory.sol";
 import {IRequestPolicy} from "src/interface/IRequestPolicy.sol";
 import {IWithdrawer} from "src/interface/IWithdrawer.sol";
-
-interface IWithdrawAssetVault is IERC20Metadata {
-    /// @notice Withdraws a vault asset to a receiver and consumes shares from owner.
-    /// @param asset_ Asset to withdraw.
-    /// @param assets Amount of `asset_` to withdraw.
-    /// @param receiver Receiver of the withdrawn asset.
-    /// @param owner Owner whose shares are consumed.
-    /// @return shares Amount of shares consumed.
-    function withdrawAsset(address asset_, uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares);
-
-    /// @notice Converts shares to the vault default asset amount.
-    /// @param shares Amount of shares to convert.
-    /// @return assets Amount of default asset represented by `shares`.
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-}
+import {IWithdrawerVault} from "src/interface/IWithdrawerVault.sol";
 
 /// @title WithdrawalRequest
 /// @notice Custodies one yn-token type and tracks permissioned resolution of withdrawal requests.
@@ -66,12 +49,13 @@ contract WithdrawalRequest is
 
     /// @custom:storage-location erc7201:yieldnest.storage.withdrawal_request_manager
     struct RequestStorage {
-        IWithdrawAssetVault token;
+        IWithdrawerVault token;
         IFactory bagFactory;
         IWithdrawer withdrawer;
         IRequestPolicy requestPolicy;
         uint256 nextRequestId;
         mapping(uint256 id => Request request) requests;
+        uint256 maxDataLength;
     }
 
     error ZeroAddress();
@@ -79,7 +63,6 @@ contract WithdrawalRequest is
     error RequestNotFound(uint256 id);
     error InsufficientLockedAmount(uint256 id, uint256 amountLocked, uint256 amountBurned);
     error InvalidTokenBalanceChange(uint256 balanceBefore, uint256 balanceAfter);
-    error InvalidAssetBalanceChange(uint256 balanceBefore, uint256 balanceAfter);
     error UnexpectedAssetsWithdrawn(uint256 expectedAssets, uint256 actualAssets);
     error ArrayLengthMismatch(uint256 assetsLength, uint256 assetAmountsLength);
     error DataTooLong(uint256 length, uint256 maxLength);
@@ -101,11 +84,11 @@ contract WithdrawalRequest is
     );
     event RequestPolicyUpdated(address oldRequestPolicy, address newRequestPolicy);
     event WithdrawerUpdated(address oldWithdrawer, address newWithdrawer);
+    event MaxDataLengthUpdated(uint256 oldMaxDataLength, uint256 newMaxDataLength);
 
     bytes32 public constant RESOLVER_ROLE = keccak256("RESOLVER_ROLE");
     bytes32 public constant CONFIGURATION_MANAGER_ROLE = keccak256("CONFIGURATION_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    uint256 public constant MAX_DATA_LENGTH = 1024;
 
     // keccak256(abi.encode(uint256(keccak256("yieldnest.storage.withdrawal_request_manager")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant RequestStorageLocation =
@@ -131,6 +114,7 @@ contract WithdrawalRequest is
     /// @param bagFactory_ Factory used to deploy request bags.
     /// @param withdrawer_ Adapter used to withdraw assets from the yn-token.
     /// @param requestPolicy_ Policy used to validate request creation.
+    /// @param maxDataLength_ Maximum bytes allowed in request metadata.
     function initialize(
         address token_,
         address defaultAdmin,
@@ -139,7 +123,8 @@ contract WithdrawalRequest is
         address pauser,
         address bagFactory_,
         address withdrawer_,
-        address requestPolicy_
+        address requestPolicy_,
+        uint256 maxDataLength_
     ) external initializer {
         if (
             token_ == address(0) || defaultAdmin == address(0) || resolver == address(0)
@@ -155,7 +140,7 @@ contract WithdrawalRequest is
         __Pausable_init();
         __ReentrancyGuard_init();
 
-        _initializeStorage(token_, bagFactory_, withdrawer_, requestPolicy_);
+        _initializeStorage(token_, bagFactory_, withdrawer_, requestPolicy_, maxDataLength_);
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(RESOLVER_ROLE, resolver);
@@ -163,14 +148,19 @@ contract WithdrawalRequest is
         _grantRole(PAUSER_ROLE, pauser);
     }
 
-    function _initializeStorage(address token_, address bagFactory_, address withdrawer_, address requestPolicy_)
-        internal
-    {
+    function _initializeStorage(
+        address token_,
+        address bagFactory_,
+        address withdrawer_,
+        address requestPolicy_,
+        uint256 maxDataLength_
+    ) internal {
         RequestStorage storage $ = _getRequestStorage();
-        $.token = IWithdrawAssetVault(token_);
+        $.token = IWithdrawerVault(token_);
         $.bagFactory = IFactory(bagFactory_);
         $.withdrawer = IWithdrawer(withdrawer_);
         $.requestPolicy = IRequestPolicy(requestPolicy_);
+        $.maxDataLength = maxDataLength_;
     }
 
     // --- Requests ---
@@ -186,7 +176,7 @@ contract WithdrawalRequest is
     /// @notice Locks yn-tokens in this contract and creates a withdrawal request with bounded data.
     /// @param amount Amount of configured yn-token shares to lock.
     /// @param receiver Receiver of the request NFT that controls claims.
-    /// @param data Arbitrary request metadata, capped at `MAX_DATA_LENGTH` bytes.
+    /// @param data Arbitrary request metadata, capped at `maxDataLength()` bytes.
     /// @return id Generated request id.
     function requestWithdrawal(uint256 amount, address receiver, bytes calldata data)
         external
@@ -199,10 +189,10 @@ contract WithdrawalRequest is
     function _requestWithdrawal(uint256 amount, address receiver, bytes memory data) internal returns (uint256 id) {
         if (amount == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
-        if (data.length > MAX_DATA_LENGTH) revert DataTooLong(data.length, MAX_DATA_LENGTH);
-
         RequestStorage storage $ = _getRequestStorage();
-        $.requestPolicy.validateRequest(msg.sender, receiver, amount);
+        uint256 maxDataLength_ = $.maxDataLength;
+        if (data.length > maxDataLength_) revert DataTooLong(data.length, maxDataLength_);
+        $.requestPolicy.validateRequest(msg.sender, receiver, amount, data);
 
         IERC20(address($.token)).safeTransferFrom(msg.sender, address(this), amount);
         uint256 rateAtRequest = $.token.convertToAssets(10 ** $.token.decimals());
@@ -363,6 +353,16 @@ contract WithdrawalRequest is
         emit RequestPolicyUpdated(oldRequestPolicy, requestPolicy_);
     }
 
+    /// @notice Updates the maximum request metadata size.
+    /// @param maxDataLength_ New maximum bytes allowed in request metadata.
+    function setMaxDataLength(uint256 maxDataLength_) external onlyRole(CONFIGURATION_MANAGER_ROLE) {
+        RequestStorage storage $ = _getRequestStorage();
+        uint256 oldMaxDataLength = $.maxDataLength;
+        $.maxDataLength = maxDataLength_;
+
+        emit MaxDataLengthUpdated(oldMaxDataLength, maxDataLength_);
+    }
+
     // --- Pause ---
 
     /// @notice Pauses new withdrawal request creation.
@@ -379,7 +379,7 @@ contract WithdrawalRequest is
 
     /// @notice Returns the configured yn-token handled by this withdrawal request contract.
     /// @return The configured yn-token.
-    function token() public view returns (IWithdrawAssetVault) {
+    function token() public view returns (IWithdrawerVault) {
         return _getRequestStorage().token;
     }
 
@@ -405,6 +405,12 @@ contract WithdrawalRequest is
     /// @return The configured request policy.
     function requestPolicy() public view returns (IRequestPolicy) {
         return _getRequestStorage().requestPolicy;
+    }
+
+    /// @notice Returns the maximum request metadata size.
+    /// @return Maximum bytes allowed in request metadata.
+    function maxDataLength() public view returns (uint256) {
+        return _getRequestStorage().maxDataLength;
     }
 
     /// @notice Returns a withdrawal request by id.

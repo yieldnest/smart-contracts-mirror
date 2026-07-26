@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "453be10be56b8401acf123668297f3e0d8839b47",
-      "commit_message": "Allow burning claimed withdrawal requests"
+      "commit": "dee5bae4a15a650663a04700f8a6135c0c99ffb0",
+      "commit_message": "Use IVault for shared vault interfaces"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
