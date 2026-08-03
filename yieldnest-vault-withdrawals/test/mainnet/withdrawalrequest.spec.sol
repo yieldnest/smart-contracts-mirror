@@ -56,8 +56,12 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         bagFactory = BeaconProxyFactory(address(bagFactoryProxy));
 
         WithdrawalRequest implementation = new WithdrawalRequest();
-        address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        withdrawer = new BaseWithdrawer(address(vault), predictedManager);
+        address predictedManager = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
+        BaseWithdrawer withdrawerImplementation = new BaseWithdrawer();
+        TransparentUpgradeableProxy withdrawerProxy = new TransparentUpgradeableProxy(
+            address(withdrawerImplementation), ADMIN, abi.encodeCall(BaseWithdrawer.initialize, (address(vault), predictedManager))
+        );
+        withdrawer = BaseWithdrawer(address(withdrawerProxy));
         requestPolicy = new MinAmountRequestPolicy(MIN_WITHDRAWAL_AMOUNT);
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
@@ -325,7 +329,7 @@ contract WithdrawalRequestMainnetTest is Test, Actors {
         assertEq(address(manager.bagFactory()), address(bagFactory));
         assertTrue(request.bag != address(0));
         assertEq(manager.ownerOf(requestId), owner);
-        assertEq(IBag(request.bag).ownerRegistry(), address(manager));
+        assertEq(IBag(request.bag).auth(), address(manager));
         assertEq(request.amountLocked, amount);
         assertEq(IERC20(address(vault)).balanceOf(address(manager)), amount);
     }

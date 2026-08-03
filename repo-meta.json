@@ -29,8 +29,8 @@
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
       "branch": "feature/withdrawal-v1",
-      "commit": "dee5bae4a15a650663a04700f8a6135c0c99ffb0",
-      "commit_message": "Use IVault for shared vault interfaces"
+      "commit": "a769b101286fb3af87079b7260afbc9d20f27486",
+      "commit_message": "Add policy math and viewer unit tests"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

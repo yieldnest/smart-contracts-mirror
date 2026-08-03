@@ -7,7 +7,7 @@ import {Math} from "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
 
 /// @title FixedRateWithdrawer
-/// @notice Withdrawer adapter that enforces a minimum redemption rate for the vault default asset.
+/// @notice Test-only withdrawer adapter that enforces a minimum redemption rate for the vault default asset.
 contract FixedRateWithdrawer is BaseWithdrawer {
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -18,14 +18,10 @@ contract FixedRateWithdrawer is BaseWithdrawer {
     error InvalidAsset(address asset);
     error InvalidRate();
 
-    /// @notice Deploys a fixed-rate withdrawer for the vault default asset.
-    /// @param token_ Vault token to withdraw assets from.
-    /// @param withdrawalRequest_ Withdrawal request contract authorized to call this withdrawer.
+    /// @notice Deploys a fixed-rate withdrawer implementation for the vault default asset.
     /// @param fixedRate_ Fixed default-asset amount per whole share unit.
     /// @param collector_ Receiver of shares charged above the vault-burned amount.
-    constructor(address token_, address withdrawalRequest_, uint256 fixedRate_, address collector_)
-        BaseWithdrawer(token_, withdrawalRequest_)
-    {
+    constructor(uint256 fixedRate_, address collector_) {
         if (fixedRate_ == 0) revert InvalidRate();
         if (collector_ == address(0)) revert ZeroAddress();
 

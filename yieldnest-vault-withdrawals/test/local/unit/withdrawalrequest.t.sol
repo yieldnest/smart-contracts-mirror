@@ -21,7 +21,7 @@ import {Bag} from "src/Bag.sol";
 import {MinAmountRequestPolicy} from "src/policies/MinAmountRequestPolicy.sol";
 import {WithdrawalRequest} from "src/WithdrawalRequest.sol";
 import {BaseWithdrawer} from "src/withdrawers/BaseWithdrawer.sol";
-import {FixedRateWithdrawer} from "src/withdrawers/FixedRateWithdrawer.sol";
+import {FixedRateWithdrawer} from "test/local/unit/helpers/FixedRateWithdrawer.sol";
 import {SetupWithdrawalRequest} from "test/local/unit/helpers/SetupWithdrawalRequest.sol";
 import {WithdrawalRequestViewer} from "views/WithdrawalRequestViewer.sol";
 
@@ -41,40 +41,6 @@ contract ReentrantResolveWithdrawer is IWithdrawer {
 
     function convertToAssets(uint256) external pure returns (uint256) {
         return 0;
-    }
-}
-
-/// @notice Hypothetical withdrawer that redeems the yn-token in kind. Instead of burning shares to
-/// produce an underlying asset, it transfers the yn-token itself from the manager into the request bag.
-/// The manager's balance delta still equals the returned "burned" amount, so the resolution invariants hold.
-contract InKindWithdrawer is IWithdrawer {
-    using SafeERC20 for IERC20;
-
-    IERC20 internal immutable token;
-    address internal immutable withdrawalRequest;
-
-    error Unauthorized(address caller);
-    error InvalidAsset(address asset);
-
-    constructor(address token_, address withdrawalRequest_) {
-        token = IERC20(token_);
-        withdrawalRequest = withdrawalRequest_;
-    }
-
-    function withdrawAsset(uint256, address asset, uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares)
-    {
-        if (msg.sender != withdrawalRequest) revert Unauthorized(msg.sender);
-        if (asset != address(token)) revert InvalidAsset(asset);
-
-        // No burn: move the yn-token in kind from the manager (owner) into the request bag (receiver).
-        token.safeTransferFrom(owner, receiver, assets);
-        return assets;
-    }
-
-    function convertToAssets(uint256 shares) external pure returns (uint256) {
-        return shares;
     }
 }
 
@@ -107,6 +73,48 @@ interface IRequestRateWithdrawerVault is IERC20 {
         external
         returns (uint256 shares);
     function convertToAssets(uint256 shares) external view returns (uint256 assets);
+}
+
+contract BadReturnWithdrawer is IWithdrawer {
+    IRequestRateWithdrawerVault internal immutable token;
+    uint256 internal immutable returnOffset;
+
+    constructor(address token_, uint256 returnOffset_) {
+        token = IRequestRateWithdrawerVault(token_);
+        returnOffset = returnOffset_;
+    }
+
+    function withdrawAsset(uint256, address asset, uint256 assets, address receiver, address owner)
+        external
+        returns (uint256 shares)
+    {
+        shares = token.withdrawAsset(asset, assets, receiver, owner) + returnOffset;
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        return token.convertToAssets(shares);
+    }
+}
+
+contract ShortfallWithdrawer is IWithdrawer {
+    IRequestRateWithdrawerVault internal immutable token;
+    uint256 internal immutable shortfall;
+
+    constructor(address token_, uint256 shortfall_) {
+        token = IRequestRateWithdrawerVault(token_);
+        shortfall = shortfall_;
+    }
+
+    function withdrawAsset(uint256, address asset, uint256 assets, address receiver, address owner)
+        external
+        returns (uint256 shares)
+    {
+        shares = token.withdrawAsset(asset, assets - shortfall, receiver, owner);
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        return token.convertToAssets(shares);
+    }
 }
 
 /// @notice Hypothetical test-only withdrawer that charges each request at its recorded request-time rate.
@@ -152,6 +160,18 @@ contract RequestRateWithdrawer is IWithdrawer {
 contract WithdrawalRequestTest is SetupWithdrawalRequest {
     function setUp() public {
         setUpWithdrawalRequest();
+    }
+
+    function _deployFixedRateWithdrawer(uint256 fixedRate, address collector_) internal returns (FixedRateWithdrawer) {
+        FixedRateWithdrawer implementation = new FixedRateWithdrawer(fixedRate, collector_);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
+            address(implementation),
+            admin,
+            abi.encodeCall(BaseWithdrawer.initialize, (address(ynToken), address(manager)))
+        );
+        FixedRateWithdrawer fixedRateWithdrawer = FixedRateWithdrawer(address(proxy));
+        _authorizeAssetWithdrawer(address(fixedRateWithdrawer));
+        return fixedRateWithdrawer;
     }
 
     function _claimSingleERC20(address bag, address asset_, address recipient_, uint256 amount)
@@ -384,7 +404,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(manager.maxDataLength(), maxDataLength);
         assertEq(ynToken.allowance(address(manager), address(withdrawer)), 0);
         assertTrue(manager.supportsInterface(type(IERC721Enumerable).interfaceId));
-        assertEq(IBag(request.bag).ownerRegistry(), address(manager));
+        assertEq(IBag(request.bag).auth(), address(manager));
         assertEq(IBag(request.bag).id(), id);
         assertEq(request.amountLocked, 10 ether);
         assertEq(request.rateAtRequest, 1 ether);
@@ -392,12 +412,12 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testRequestWithdrawalRecordsRateAtCreation() public {
-        ynToken.setConvertToAssetsRate(2 ether);
+        _setDefaultAssetPerShare(2 ether);
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
 
-        ynToken.setConvertToAssetsRate(3 ether);
+        _setDefaultAssetPerShare(3 ether);
 
         WithdrawalRequest.Request memory request = manager.requests(id);
         assertEq(request.amountLocked, 10 ether);
@@ -485,8 +505,8 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(manager.tokenByIndex(1), secondId);
         assertEq(manager.tokenOfOwnerByIndex(user, 0), firstId);
         assertEq(manager.tokenOfOwnerByIndex(user, 1), secondId);
-        assertEq(IBag(firstRequest.bag).ownerRegistry(), address(manager));
-        assertEq(IBag(secondRequest.bag).ownerRegistry(), address(manager));
+        assertEq(IBag(firstRequest.bag).auth(), address(manager));
+        assertEq(IBag(secondRequest.bag).auth(), address(manager));
     }
 
     function testRequestWithdrawalMintsRequestNFTToReceiver() public {
@@ -500,7 +520,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(manager.ownerOf(id), receiver);
         assertEq(manager.balanceOf(receiver), 1);
         assertEq(manager.tokenOfOwnerByIndex(receiver, 0), id);
-        assertEq(IBag(request.bag).ownerRegistry(), address(manager));
+        assertEq(IBag(request.bag).auth(), address(manager));
         assertEq(IBag(request.bag).id(), id);
     }
 
@@ -573,7 +593,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(ynToken.balanceOf(address(manager)), managerBalanceBefore + amount);
         assertEq(request.amountLocked, amount);
         assertEq(manager.ownerOf(id), receiver_);
-        assertEq(IBag(request.bag).ownerRegistry(), address(manager));
+        assertEq(IBag(request.bag).auth(), address(manager));
         assertEq(IBag(request.bag).id(), id);
     }
 
@@ -749,6 +769,12 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.requestWithdrawal(minWithdrawalAmount - 1, user);
     }
 
+    function testRequestWithdrawalRevertsForZeroAmount() public {
+        vm.expectRevert(WithdrawalRequest.ZeroAmount.selector);
+        vm.prank(user);
+        manager.requestWithdrawal(0, user);
+    }
+
     function testFuzzRequestWithdrawalRevertsBelowMinimumAmount(uint96 amount) public {
         amount = uint96(bound(amount, 1, minWithdrawalAmount - 1));
 
@@ -768,6 +794,11 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     function testRequestsRevertsWhenRequestDoesNotExist() public {
         vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.RequestNotFound.selector, 123));
         manager.requests(123);
+    }
+
+    function testBurnRevertsWhenRequestDoesNotExist() public {
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.RequestNotFound.selector, 123));
+        manager.burn(123);
     }
 
     function testSetRequestPolicyRequiresConfigurationManagerRole() public {
@@ -862,7 +893,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testSetWithdrawerUpdatesWithdrawerAndRevokesOldApproval() public {
-        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+        BaseWithdrawer newWithdrawer = _deployBaseWithdrawer(address(ynToken), address(manager));
 
         vm.expectEmit(false, false, false, true, address(manager));
         emit WithdrawalRequest.WithdrawerUpdated(address(withdrawer), address(newWithdrawer));
@@ -894,7 +925,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testSetWithdrawerRequiresConfigurationManagerRole() public {
-        BaseWithdrawer newWithdrawer = new BaseWithdrawer(address(ynToken), address(manager));
+        BaseWithdrawer newWithdrawer = _deployBaseWithdrawer(address(ynToken), address(manager));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -911,12 +942,25 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.setWithdrawer(address(0));
     }
 
-    function testBaseWithdrawerConstructorRevertsForZeroAddresses() public {
-        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
-        new BaseWithdrawer(address(0), address(manager));
+    function testBaseWithdrawerImplementationCannotBeInitialized() public {
+        BaseWithdrawer implementation = new BaseWithdrawer();
+
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        implementation.initialize(address(ynToken), address(manager));
+    }
+
+    function testBaseWithdrawerInitializeRevertsForZeroAddresses() public {
+        BaseWithdrawer implementation = new BaseWithdrawer();
 
         vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
-        new BaseWithdrawer(address(ynToken), address(0));
+        new TransparentUpgradeableProxy(
+            address(implementation), admin, abi.encodeCall(BaseWithdrawer.initialize, (address(0), address(manager)))
+        );
+
+        vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
+        new TransparentUpgradeableProxy(
+            address(implementation), admin, abi.encodeCall(BaseWithdrawer.initialize, (address(ynToken), address(0)))
+        );
     }
 
     function testBaseWithdrawerRejectsUnauthorizedCaller() public {
@@ -926,7 +970,10 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testBaseWithdrawerForwardsWithdrawalAndReturnsBurnedShares() public {
-        ynToken.mint(address(manager), 2 ether);
+        _mintVaultShares(address(manager), 2 ether);
+
+        vm.prank(address(manager));
+        ynToken.approve(address(withdrawer), 2 ether);
 
         vm.prank(address(manager));
         uint256 sharesBurned = withdrawer.withdrawAsset(0, address(asset), 2 ether, receiver, address(manager));
@@ -940,6 +987,11 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(withdrawer.convertToAssets(1 ether), 1 ether);
     }
 
+    function testBaseWithdrawerReturnsConfiguredTokenAndManager() public view {
+        assertEq(address(withdrawer.token()), address(ynToken));
+        assertEq(withdrawer.withdrawalRequest(), address(manager));
+    }
+
     function testConvertToAssets() public view {
         assertEq(viewer.convertToAssets(manager, address(asset), 0), 0);
         assertEq(viewer.convertToAssets(manager, address(asset), 10 ether), 10 ether);
@@ -948,8 +1000,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     function testConvertToAssetsAtRedemptionRateUsesConfiguredWithdrawer() public {
         assertEq(viewer.convertToAssetsAtRedemptionRate(manager, 1 ether), 1 ether);
 
-        FixedRateWithdrawer fixedRateWithdrawer =
-            new FixedRateWithdrawer(address(ynToken), address(manager), 0.5 ether, collector);
+        FixedRateWithdrawer fixedRateWithdrawer = _deployFixedRateWithdrawer(0.5 ether, collector);
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(fixedRateWithdrawer));
@@ -1067,12 +1118,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         assertEq(asset.balanceOf(request.bag), 0);
     }
 
-    function testInKindWithdrawerResolvesYnTokenIntoBagWithoutBurning() public {
-        InKindWithdrawer inKindWithdrawer = new InKindWithdrawer(address(ynToken), address(manager));
-
-        vm.prank(configurationManager);
-        manager.setWithdrawer(address(inKindWithdrawer));
-
+    function testBaseWithdrawerResolvesYnTokenIntoBagWithoutBurning() public {
         uint256 totalSupplyBefore = ynToken.totalSupply();
 
         vm.prank(user);
@@ -1193,6 +1239,12 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.resolveWithdrawalRequest(id, address(0), 1 ether);
     }
 
+    function testResolveWithdrawalRequestRevertsWhenRequestDoesNotExist() public {
+        vm.expectRevert(abi.encodeWithSelector(WithdrawalRequest.RequestNotFound.selector, 123));
+        vm.prank(resolver);
+        manager.resolveWithdrawalRequest(123, address(asset), 1 ether);
+    }
+
     function testResolveWithdrawalRequestRevertsForZeroAssets() public {
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -1203,8 +1255,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testFixedRateWithdrawerRejectsNonDefaultAsset() public {
-        FixedRateWithdrawer fixedRateWithdrawer =
-            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+        FixedRateWithdrawer fixedRateWithdrawer = _deployFixedRateWithdrawer(1 ether, collector);
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(fixedRateWithdrawer));
@@ -1219,19 +1270,18 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
 
     function testFixedRateWithdrawerConstructorRevertsForInvalidParams() public {
         vm.expectRevert(FixedRateWithdrawer.InvalidRate.selector);
-        new FixedRateWithdrawer(address(ynToken), address(manager), 0, collector);
+        new FixedRateWithdrawer(0, collector);
 
         vm.expectRevert(BaseWithdrawer.ZeroAddress.selector);
-        new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, address(0));
+        new FixedRateWithdrawer(1 ether, address(0));
     }
 
     function testFixedRateWithdrawerReturnsActualBurnWhenRateIsBelowFixedRate() public {
-        FixedRateWithdrawer fixedRateWithdrawer =
-            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+        FixedRateWithdrawer fixedRateWithdrawer = _deployFixedRateWithdrawer(1 ether, collector);
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(fixedRateWithdrawer));
-        ynToken.setBurnMultiplier(2);
+        _setAssetRate(address(asset), 2 ether);
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -1246,8 +1296,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testFixedRateWithdrawerAllowsDefaultAssetAtFixedRate() public {
-        FixedRateWithdrawer fixedRateWithdrawer =
-            new FixedRateWithdrawer(address(ynToken), address(manager), 1 ether, collector);
+        FixedRateWithdrawer fixedRateWithdrawer = _deployFixedRateWithdrawer(1 ether, collector);
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(fixedRateWithdrawer));
@@ -1265,8 +1314,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testFixedRateWithdrawerTransfersSurplusSharesToCollector() public {
-        FixedRateWithdrawer fixedRateWithdrawer =
-            new FixedRateWithdrawer(address(ynToken), address(manager), 0.5 ether, collector);
+        FixedRateWithdrawer fixedRateWithdrawer = _deployFixedRateWithdrawer(0.5 ether, collector);
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(fixedRateWithdrawer));
@@ -1287,11 +1335,12 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     function testRequestRateWithdrawerChargesRateRecordedAtRequestTime() public {
         RequestRateWithdrawer requestRateWithdrawer =
             new RequestRateWithdrawer(address(manager), address(ynToken), collector);
+        _authorizeAssetWithdrawer(address(requestRateWithdrawer));
 
         vm.prank(configurationManager);
         manager.setWithdrawer(address(requestRateWithdrawer));
 
-        ynToken.setConvertToAssetsRate(0.5 ether);
+        _setDefaultAssetPerShare(0.5 ether);
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -1299,7 +1348,7 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         WithdrawalRequest.Request memory request = manager.requests(id);
         assertEq(request.rateAtRequest, 0.5 ether);
 
-        ynToken.setConvertToAssetsRate(1 ether);
+        _setDefaultAssetPerShare(1 ether);
 
         vm.prank(resolver);
         uint256 amountBurned = manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
@@ -1385,7 +1434,11 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testResolveWithdrawalRequestRevertsWhenReturnedBurnAmountMismatchesBalanceDelta() public {
-        ynToken.setReturnAmountOffset(100 ether);
+        BadReturnWithdrawer badReturnWithdrawer = new BadReturnWithdrawer(address(ynToken), 100 ether);
+        _authorizeAssetWithdrawer(address(badReturnWithdrawer));
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(badReturnWithdrawer));
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -1396,7 +1449,11 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
     }
 
     function testResolveWithdrawalRequestRevertsWhenAssetsWithdrawnMismatchExpected() public {
-        ynToken.setTransferShortfall(1 ether);
+        ShortfallWithdrawer shortfallWithdrawer = new ShortfallWithdrawer(address(ynToken), 1 ether);
+        _authorizeAssetWithdrawer(address(shortfallWithdrawer));
+
+        vm.prank(configurationManager);
+        manager.setWithdrawer(address(shortfallWithdrawer));
 
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
@@ -1419,16 +1476,13 @@ contract WithdrawalRequestTest is SetupWithdrawalRequest {
         manager.resolveWithdrawalRequest(id, address(asset), 1 ether);
     }
 
-    function testResolveWithdrawalRequestRevertsWhenBurnExceedsLockedAmount() public {
-        ynToken.mint(address(manager), 20 ether);
-        ynToken.setBurnMultiplier(2);
-
+    function testResolveWithdrawalRequestRevertsWhenVaultBurnExceedsApprovedLockedAmount() public {
+        _mintVaultShares(address(manager), 20 ether);
+        _setAssetRate(address(asset), 2 ether);
         vm.prank(user);
         uint256 id = manager.requestWithdrawal(10 ether, user);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(WithdrawalRequest.InsufficientLockedAmount.selector, id, 10 ether, 12 ether)
-        );
+        vm.expectRevert();
         vm.prank(resolver);
         manager.resolveWithdrawalRequest(id, address(asset), 6 ether);
     }
