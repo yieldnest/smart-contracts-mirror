@@ -26,6 +26,12 @@
       "commit": "f8e9cf7f265fe5c4bddf11e666994f2048009b06",
       "commit_message": "Merge pull request #36 from yieldnest/demo/verify-contract"
     },
+    "yieldnest-vault-withdrawals": {
+      "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
+      "branch": "feature/withdrawal-v1",
+      "commit": "a769b101286fb3af87079b7260afbc9d20f27486",
+      "commit_message": "Add policy math and viewer unit tests"
+    },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
       "branch": "release-candidate",
