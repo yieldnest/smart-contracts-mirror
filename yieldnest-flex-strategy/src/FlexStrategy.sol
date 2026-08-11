@@ -30,7 +30,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
     using SafeERC20 for IERC20;
 
     /// @notice The version of the flex strategy contract.
-    string public constant FLEX_STRATEGY_VERSION = "0.1.0";
+    string public constant FLEX_STRATEGY_VERSION = "0.2.0";
 
     /// @notice Storage slot for FlexStrategy data
     bytes32 private constant FLEX_STRATEGY_STORAGE_SLOT = keccak256("yieldnest.storage.flexStrategy");
@@ -89,6 +89,8 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
         _addAsset(baseAsset, IERC20Metadata(baseAsset).decimals(), true);
         _addAsset(accountingToken, IERC20Metadata(accountingToken).decimals(), false);
         _setAssetWithdrawable(baseAsset, true);
+        // Permissioned by default
+        _setHasAllocator(true);
 
         VaultLib.setProvider(provider);
     }
@@ -96,77 +98,6 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
     modifier hasAccountingModule() {
         if (address(_getFlexStrategyStorage().accountingModule) == address(0)) revert NoAccountingModule();
         _;
-    }
-
-    /**
-     * @notice Internal function to handle deposits.
-     * @param asset_ The address of the asset.
-     * @param caller The address of the caller.
-     * @param receiver The address of the receiver.
-     * @param assets The amount of assets to deposit.
-     * @param shares The amount of shares to mint.
-     * @param baseAssets The base asset conversion of shares.
-     */
-    function _deposit(
-        address asset_,
-        address caller,
-        address receiver,
-        uint256 assets,
-        uint256 shares,
-        uint256 baseAssets
-    )
-        internal
-        virtual
-        override
-        hasAccountingModule
-    {
-        // call the base strategy deposit function for accounting
-        super._deposit(asset_, caller, receiver, assets, shares, baseAssets);
-
-        // virtual accounting
-        _getFlexStrategyStorage().accountingModule.deposit(assets);
-    }
-
-    /**
-     * @notice Internal function to handle withdrawals for base asset
-     * @param asset_ The address of the asset.
-     * @param caller The address of the caller.
-     * @param receiver The address of the receiver.
-     * @param owner The address of the owner.
-     * @param assets The amount of assets to withdraw.
-     * @param shares The equivalent amount of shares.
-     */
-    function _withdrawAsset(
-        address asset_,
-        address caller,
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    )
-        internal
-        virtual
-        override
-        hasAccountingModule
-        onlyAllocator
-    {
-        if (asset_ != asset()) {
-            revert InvalidAsset(asset_);
-        }
-
-        // call the base strategy withdraw function for accounting
-        _subTotalAssets(_convertAssetToBase(asset_, assets));
-
-        if (caller != owner) {
-            _spendAllowance(owner, caller, shares);
-        }
-
-        // NOTE: burn shares before withdrawing the assets
-        _burn(owner, shares);
-
-        // burn virtual tokens
-        _getFlexStrategyStorage().accountingModule.withdraw(assets, receiver);
-        emit WithdrawAsset(caller, receiver, owner, asset_, assets, shares);
     }
 
     /**
@@ -214,7 +145,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
      * @notice Returns the fee on total amount.
      * @return 0 as this strategy does not charge any fee on total amount.
      */
-    function _feeOnTotal(uint256) public view virtual override returns (uint256) {
+    function _feeOnTotal(uint256, address) public view virtual override returns (uint256) {
         return 0;
     }
 
@@ -222,7 +153,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
      * @notice Returns the fee on total amount.
      * @return 0 as this strategy does not charge any fee on total amount.
      */
-    function _feeOnRaw(uint256) public view virtual override returns (uint256) {
+    function _feeOnRaw(uint256, address) public view virtual override returns (uint256) {
         return 0;
     }
 

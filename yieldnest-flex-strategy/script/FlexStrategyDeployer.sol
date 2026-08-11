@@ -3,11 +3,13 @@ pragma solidity ^0.8.28;
 import { TransparentUpgradeableProxy, FlexStrategy, AccountingToken, IProvider, IActors } from "script/BaseScript.sol";
 import { FixedRateProvider } from "src/FixedRateProvider.sol";
 import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
-import { AccountingModule } from "src/AccountingModule.sol";
+import { AccountingModule, IAccountingModule } from "src/AccountingModule.sol";
 import { BaseRoles } from "script/roles/BaseRoles.sol";
 import { FlexStrategyRules } from "script/rules/FlexStrategyRules.sol";
 import { SafeRules, IVault } from "@yieldnest-vault-script/rules/SafeRules.sol";
 import { RewardsSweeper } from "src/utils/RewardsSweeper.sol";
+import { AccountingModuleHook } from "src/hooks/AccountingModuleHook.sol";
+import { HooksDeployer } from "script/HooksDeployer.sol";
 
 contract FlexStrategyDeployer {
     error InvalidDeploymentParams(string);
@@ -93,6 +95,7 @@ contract FlexStrategyDeployer {
         AccountingModule accountingModuleImplementation;
         TimelockController timelockController;
         RewardsSweeper rewardsSweeperImplementation;
+        HooksDeployer hooksDeployer;
     }
 
     function deploy() public virtual {
@@ -215,6 +218,29 @@ contract FlexStrategyDeployer {
         // set accounting processor role
         accountingModule.grantRole(accountingModule.REWARDS_PROCESSOR_ROLE(), accountingProcessor);
         accountingModule.grantRole(accountingModule.LOSS_PROCESSOR_ROLE(), safe);
+
+        {
+            AccountingModuleHook accountingModuleHook = implementations.hooksDeployer.deployAccountingModuleHook(
+                address(strategy), address(accountingModule), address(strategy)
+            );
+            // set hooks
+            IVault(address(strategy)).setHooks(address(accountingModuleHook));
+
+            // Grant PROCESSOR_ROLE to the accounting module hook
+            strategy.grantRole(strategy.PROCESSOR_ROLE(), address(accountingModuleHook));
+
+            // Create an array to hold the rules for the strategy
+            SafeRules.RuleParams[] memory strategyRules = new SafeRules.RuleParams[](2);
+
+            // Set deposit rule for accounting module on strategy
+            strategyRules[0] = FlexStrategyRules.getDepositRule(address(accountingModule));
+
+            // Set withdrawal rule for accounting module on strategy
+            strategyRules[1] = FlexStrategyRules.getWithdrawRule(address(accountingModule), address(strategy));
+
+            // Set processor rules for strategy using SafeRules
+            SafeRules.setProcessorRules(IVault(address(strategy)), strategyRules, true);
+        }
 
         {
             // Safe Rules
