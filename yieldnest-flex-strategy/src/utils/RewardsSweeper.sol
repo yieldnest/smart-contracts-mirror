@@ -18,13 +18,16 @@ contract RewardsSweeper is Initializable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
 
     bytes32 public constant REWARDS_SWEEPER_ROLE = keccak256("REWARDS_SWEEPER_ROLE");
+    bytes32 public constant SNAPSHOT_REWARDS_SWEEPER_ROLE = keccak256("SNAPSHOT_REWARDS_SWEEPER_ROLE");
     bytes32 public constant ASSET_RESCUER_ROLE = keccak256("ASSET_RESCUER_ROLE");
+    bytes32 public constant ACCOUNTING_MODULE_MANAGER_ROLE = keccak256("ACCOUNTING_MODULE_MANAGER_ROLE");
 
     IAccountingModule public accountingModule;
 
     error CannotSweepRewards();
     error SnapshotIndexOutOfBounds(uint256 index);
     error PreviousTimestampGreaterThanCurrentTimestamp(uint256 currentTimestamp, uint256 previousTimestamp);
+    error ZeroAddress();
 
     event RewardsSwept(uint256 amount, uint256 snapshotIndex);
     event AccountingModuleUpdated(address newModule, address oldModule);
@@ -39,11 +42,24 @@ contract RewardsSweeper is Initializable, AccessControlUpgradeable {
     /**
      * @notice Initializes the contract
      * @param admin The address of the admin
+     * @param accountingModuleManager The address that can update the accounting module
      * @param accountingModule_ The address of the accounting module
      */
-    function initialize(address admin, address accountingModule_) external initializer {
+    function initialize(
+        address admin,
+        address accountingModuleManager,
+        address accountingModule_
+    )
+        external
+        initializer
+    {
+        if (admin == address(0)) revert ZeroAddress();
+        if (accountingModuleManager == address(0)) revert ZeroAddress();
+        if (accountingModule_ == address(0)) revert ZeroAddress();
+
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(ACCOUNTING_MODULE_MANAGER_ROLE, accountingModuleManager);
 
         accountingModule = IAccountingModule(accountingModule_);
     }
@@ -54,7 +70,7 @@ contract RewardsSweeper is Initializable, AccessControlUpgradeable {
      * @return The amount of rewards swept.
      */
     function sweepRewardsUpToAPRMax() public onlyRole(REWARDS_SWEEPER_ROLE) returns (uint256) {
-        return sweepRewardsUpToAPRMax(accountingModule.snapshotsLength() - 1);
+        return _sweepRewardsUpToAPRMax(accountingModule.snapshotsLength() - 1);
     }
 
     /**
@@ -62,7 +78,15 @@ contract RewardsSweeper is Initializable, AccessControlUpgradeable {
      * @param snapshotIndex The index of the snapshot to consider for sweeping rewards.
      * @return The amount of rewards swept.
      */
-    function sweepRewardsUpToAPRMax(uint256 snapshotIndex) public onlyRole(REWARDS_SWEEPER_ROLE) returns (uint256) {
+    function sweepRewardsUpToAPRMax(uint256 snapshotIndex)
+        public
+        onlyRole(SNAPSHOT_REWARDS_SWEEPER_ROLE)
+        returns (uint256)
+    {
+        return _sweepRewardsUpToAPRMax(snapshotIndex);
+    }
+
+    function _sweepRewardsUpToAPRMax(uint256 snapshotIndex) internal returns (uint256) {
         uint256 amountToSweep = previewSweepRewardsUpToAPRMax(snapshotIndex);
 
         if (amountToSweep > 0) {
@@ -180,7 +204,7 @@ contract RewardsSweeper is Initializable, AccessControlUpgradeable {
      * @param accountingModule_ New accounting module address
      */
 
-    function setAccountingModule(address accountingModule_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setAccountingModule(address accountingModule_) external onlyRole(ACCOUNTING_MODULE_MANAGER_ROLE) {
         emit AccountingModuleUpdated(accountingModule_, address(accountingModule));
         accountingModule = IAccountingModule(accountingModule_);
     }

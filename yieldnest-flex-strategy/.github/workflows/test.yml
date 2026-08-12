@@ -4,9 +4,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  FOUNDRY_PROFILE: ci
-
 jobs:
   check:
     strategy:
@@ -25,7 +22,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.5
+          version: v1.6.0-rc1
 
       - name: Show Forge version
         run: |
@@ -47,6 +44,8 @@ jobs:
         id: test_unit
 
       - name: Run Integration tests
+        env:
+          FOUNDRY_PROFILE: mainnet
         run: |
           forge test --match-path "test/integration/*" --rpc-url $RPC_URL -vvv
         id: test_integration

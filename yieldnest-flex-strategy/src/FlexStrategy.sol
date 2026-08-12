@@ -13,6 +13,8 @@ interface IFlexStrategy {
     error AccountingTokenMismatch();
 
     event AccountingModuleUpdated(address newValue, address oldValue);
+
+    function accountingModule() external view returns (IAccountingModule);
 }
 
 /**
@@ -28,6 +30,8 @@ struct FlexStrategyStorage {
  */
 contract FlexStrategy is IFlexStrategy, BaseStrategy {
     using SafeERC20 for IERC20;
+
+    bytes32 public constant ACCOUNTING_MODULE_MANAGER_ROLE = keccak256("ACCOUNTING_MODULE_MANAGER_ROLE");
 
     /// @notice The version of the flex strategy contract.
     string public constant FLEX_STRATEGY_VERSION = "0.2.0";
@@ -52,6 +56,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
     /**
      * @notice Initializes the vault.
      * @param admin The address of the admin.
+     * @param accountingModuleManager The address that can update the accounting module.
      * @param name The name of the vault.
      * @param symbol The symbol of the vault.
      * @param decimals_ The number of decimals for the vault token.
@@ -60,6 +65,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
      */
     function initialize(
         address admin,
+        address accountingModuleManager,
         string memory name,
         string memory symbol,
         uint8 decimals_,
@@ -74,6 +80,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
         initializer
     {
         if (admin == address(0)) revert ZeroAddress();
+        if (accountingModuleManager == address(0)) revert ZeroAddress();
 
         _initialize(
             admin,
@@ -85,6 +92,8 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
             alwaysComputeTotalAssets, // alwaysComputeTotalAssets
             0 // defaultAssetIndex. MUST be 0. baseAsset is default
         );
+
+        _grantRole(ACCOUNTING_MODULE_MANAGER_ROLE, accountingModuleManager);
 
         _addAsset(baseAsset, IERC20Metadata(baseAsset).decimals(), true);
         _addAsset(accountingToken, IERC20Metadata(accountingToken).decimals(), false);
@@ -105,7 +114,7 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
      * @param accountingModule_ address to check.
      * @dev Will revoke approvals for outgoing accounting module, and approve max for incoming accounting module.
      */
-    function setAccountingModule(address accountingModule_) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setAccountingModule(address accountingModule_) external virtual onlyRole(ACCOUNTING_MODULE_MANAGER_ROLE) {
         if (accountingModule_ == address(0)) revert ZeroAddress();
 
         FlexStrategyStorage storage flexStorage = _getFlexStrategyStorage();

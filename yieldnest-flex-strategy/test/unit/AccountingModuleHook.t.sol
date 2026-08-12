@@ -44,7 +44,7 @@ contract AccountingModuleHookTest is Test {
         TransparentUpgradeableProxy accountingToken_tu = new TransparentUpgradeableProxy(
             address(accountingToken_impl),
             ADMIN,
-            abi.encodeWithSelector(AccountingToken.initialize.selector, ADMIN, "NAME", "SYMBOL")
+            abi.encodeWithSelector(AccountingToken.initialize.selector, ADMIN, ADMIN, "NAME", "SYMBOL")
         );
         accountingToken = AccountingToken(payable(address(accountingToken_tu)));
 
@@ -92,12 +92,7 @@ contract AccountingModuleHookTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IHooks.CallerNotVault.selector));
         accountingModuleHook.beforeWithdraw(
             IHooks.WithdrawParams({
-                asset: address(mockErc20),
-                assets: 100 ether,
-                caller: BOB,
-                receiver: BOB,
-                owner: BOB,
-                shares: 100 ether
+                asset: address(mockErc20), assets: 100 ether, caller: BOB, receiver: BOB, owner: BOB, shares: 100 ether
             })
         );
         vm.stopPrank();
@@ -108,12 +103,7 @@ contract AccountingModuleHookTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IHooks.CallerNotVault.selector));
         accountingModuleHook.beforeRedeem(
             IHooks.RedeemParams({
-                asset: address(mockErc20),
-                shares: 100 ether,
-                caller: BOB,
-                receiver: BOB,
-                owner: BOB,
-                assets: 100 ether
+                asset: address(mockErc20), shares: 100 ether, caller: BOB, receiver: BOB, owner: BOB, assets: 100 ether
             })
         );
         vm.stopPrank();
@@ -140,12 +130,7 @@ contract AccountingModuleHookTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IHooks.CallerNotVault.selector));
         accountingModuleHook.afterWithdraw(
             IHooks.WithdrawParams({
-                asset: address(mockErc20),
-                assets: 100 ether,
-                caller: BOB,
-                receiver: BOB,
-                owner: BOB,
-                shares: 100 ether
+                asset: address(mockErc20), assets: 100 ether, caller: BOB, receiver: BOB, owner: BOB, shares: 100 ether
             })
         );
         vm.stopPrank();
@@ -156,12 +141,7 @@ contract AccountingModuleHookTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IHooks.CallerNotVault.selector));
         accountingModuleHook.afterRedeem(
             IHooks.RedeemParams({
-                asset: address(mockErc20),
-                shares: 100 ether,
-                caller: BOB,
-                receiver: BOB,
-                owner: BOB,
-                assets: 100 ether
+                asset: address(mockErc20), shares: 100 ether, caller: BOB, receiver: BOB, owner: BOB, assets: 100 ether
             })
         );
         vm.stopPrank();
@@ -274,6 +254,50 @@ contract AccountingModuleHookTest is Test {
 
         // Should have deposited to the accounting module via the hook
         assertEq(IERC20(accountingModule.accountingToken()).balanceOf(address(mockStrategy)), mintAmount);
+    }
+
+    function test_afterDeposit_uses_current_strategy_accounting_module() public {
+        AccountingModule accountingModule2;
+        {
+            AccountingModule accountingModuleImpl = new AccountingModule();
+            TransparentUpgradeableProxy accountingModuleProxy =
+                new TransparentUpgradeableProxy(address(accountingModuleImpl), ADMIN, "");
+            accountingModule2 = AccountingModule(payable(address(accountingModuleProxy)));
+        }
+
+        vm.prank(ADMIN);
+        accountingModule2.initialize(
+            address(mockStrategy),
+            ADMIN,
+            SAFE,
+            IAccountingToken(address(accountingToken)),
+            0.1 ether,
+            0.5 ether,
+            1e18,
+            1 hours
+        );
+
+        vm.prank(ADMIN);
+        accountingToken.setAccountingModule(address(accountingModule2));
+        mockStrategy.setAccountingModule(accountingModule2);
+
+        uint256 depositAmount = 100 ether;
+        mockErc20.mint(address(mockStrategy), depositAmount);
+
+        vm.prank(address(mockStrategy));
+        accountingModuleHook.afterDeposit(
+            IHooks.DepositParams({
+                asset: address(mockErc20),
+                assets: depositAmount,
+                caller: address(this),
+                receiver: address(this),
+                shares: depositAmount,
+                baseAssets: depositAmount
+            })
+        );
+
+        assertEq(address(accountingModuleHook.accountingModule()), address(accountingModule2));
+        assertEq(IERC20(accountingModule2.accountingToken()).balanceOf(address(mockStrategy)), depositAmount);
     }
 
     function test_beforeRedeem_called_by_Vault_succeeds() public {

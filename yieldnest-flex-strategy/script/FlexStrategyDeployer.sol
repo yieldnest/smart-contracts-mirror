@@ -116,29 +116,27 @@ contract FlexStrategyDeployer {
         AccountingToken accountingTokenImplementation = implementations.accountingTokenImplementation;
 
         accountingToken = AccountingToken(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(accountingTokenImplementation),
                         address(timelock),
                         abi.encodeWithSelector(
-                            AccountingToken.initialize.selector, admin, accountTokenName, accountTokenSymbol
+                            AccountingToken.initialize.selector, admin, admin, accountTokenName, accountTokenSymbol
                         )
                     )
-                )
-            )
+                ))
         );
 
         deployRateProvider();
 
         strategy = FlexStrategy(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(strategyImplementation),
                         address(timelock),
                         abi.encodeWithSelector(
                             FlexStrategy.initialize.selector,
+                            admin,
                             admin,
                             name,
                             symbol_,
@@ -150,15 +148,13 @@ contract FlexStrategyDeployer {
                             alwaysComputeTotalAssets
                         )
                     )
-                )
-            )
+                ))
         );
 
         AccountingModule accountingModuleImplementation =
             AccountingModule(address(implementations.accountingModuleImplementation));
         accountingModule = AccountingModule(
-            payable(
-                address(
+            payable(address(
                     new TransparentUpgradeableProxy(
                         address(accountingModuleImplementation),
                         address(timelock),
@@ -174,23 +170,22 @@ contract FlexStrategyDeployer {
                             1 hours
                         )
                     )
-                )
-            )
+                ))
         );
 
         RewardsSweeper rewardsSweeperImplementation = implementations.rewardsSweeperImplementation;
 
         if (useRewardsSweeper) {
             rewardsSweeper = RewardsSweeper(
-                payable(
-                    address(
+                payable(address(
                         new TransparentUpgradeableProxy(
                             address(rewardsSweeperImplementation),
                             address(timelock),
-                            abi.encodeWithSelector(RewardsSweeper.initialize.selector, admin, address(accountingModule))
+                            abi.encodeWithSelector(
+                                RewardsSweeper.initialize.selector, admin, admin, address(accountingModule)
+                            )
                         )
-                    )
-                )
+                    ))
             );
         }
 
@@ -220,9 +215,8 @@ contract FlexStrategyDeployer {
         accountingModule.grantRole(accountingModule.LOSS_PROCESSOR_ROLE(), safe);
 
         {
-            AccountingModuleHook accountingModuleHook = implementations.hooksDeployer.deployAccountingModuleHook(
-                address(strategy), address(accountingModule), address(strategy)
-            );
+            AccountingModuleHook accountingModuleHook = implementations.hooksDeployer
+                .deployAccountingModuleHook(address(strategy), address(accountingModule), address(strategy));
             // set hooks
             IVault(address(strategy)).setHooks(address(accountingModuleHook));
 
@@ -261,11 +255,14 @@ contract FlexStrategyDeployer {
         if (useRewardsSweeper) {
             // RewardsSweeper
             rewardsSweeper.grantRole(rewardsSweeper.DEFAULT_ADMIN_ROLE(), actors.ADMIN());
+            rewardsSweeper.grantRole(rewardsSweeper.ACCOUNTING_MODULE_MANAGER_ROLE(), actors.ADMIN());
             rewardsSweeper.grantRole(rewardsSweeper.REWARDS_SWEEPER_ROLE(), actors.PROCESSOR());
+            rewardsSweeper.grantRole(rewardsSweeper.SNAPSHOT_REWARDS_SWEEPER_ROLE(), actors.PROCESSOR());
 
             accountingModule.grantRole(accountingModule.REWARDS_PROCESSOR_ROLE(), address(rewardsSweeper));
 
-            rewardsSweeper.renounceRole(strategy.DEFAULT_ADMIN_ROLE(), deployer);
+            rewardsSweeper.renounceRole(rewardsSweeper.DEFAULT_ADMIN_ROLE(), deployer);
+            rewardsSweeper.renounceRole(rewardsSweeper.ACCOUNTING_MODULE_MANAGER_ROLE(), deployer);
         }
 
         strategy.unpause();
