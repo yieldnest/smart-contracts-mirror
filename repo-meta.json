@@ -11,8 +11,8 @@
     "yieldnest-flex-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-flex-strategy.git",
       "branch": "feature/vault-v0.4.0-strategy-v0.3.0",
-      "commit": "9745c871ee4d2da67a60a351c05c4f217005b056",
-      "commit_message": "Use explicit accounting module manager"
+      "commit": "b4784e38239835275f0c935698123e4dd02f9f33",
+      "commit_message": "Refactor rewards sweeper snapshot role checks"
     },
     "yieldnest-erc4626-wrapper-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-erc4626-wrapper-strategy.git",
