@@ -10,9 +10,9 @@
     },
     "yieldnest-flex-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-flex-strategy.git",
-      "branch": "release-candidate",
-      "commit": "8c53830c0162dc7f5bd5bfeb80c14480053bcddc",
-      "commit_message": "Merge pull request #23 from yieldnest/fix/rewards-sweeper-verifier"
+      "branch": "feature/vault-v0.4.0-strategy-v0.3.0",
+      "commit": "b4784e38239835275f0c935698123e4dd02f9f33",
+      "commit_message": "Refactor rewards sweeper snapshot role checks"
     },
     "yieldnest-erc4626-wrapper-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-erc4626-wrapper-strategy.git",

@@ -35,7 +35,7 @@ contract AccountingModuleTest is Test {
         TransparentUpgradeableProxy accountingToken_tu = new TransparentUpgradeableProxy(
             address(accountingToken_impl),
             ADMIN,
-            abi.encodeWithSelector(AccountingToken.initialize.selector, ADMIN, "NAME", "SYMBOL")
+            abi.encodeWithSelector(AccountingToken.initialize.selector, ADMIN, ADMIN, "NAME", "SYMBOL")
         );
         accountingToken = AccountingToken(payable(address(accountingToken_tu)));
 
@@ -458,10 +458,8 @@ contract AccountingModuleTest is Test {
         uint256 supply = 10_000_000e18;
         vm.assume(
             processedAmount
-                <= (
-                    accountingModule.targetApy() * supply * timePassed / accountingModule.DIVISOR()
-                        / accountingModule.YEAR()
-                )
+                <= (accountingModule.targetApy() * supply * timePassed / accountingModule.DIVISOR()
+                        / accountingModule.YEAR())
         );
 
         vm.startPrank(BOB);
