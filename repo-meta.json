@@ -32,6 +32,12 @@
       "commit": "a769b101286fb3af87079b7260afbc9d20f27486",
       "commit_message": "Add policy math and viewer unit tests"
     },
+    "vault-factory": {
+      "url": "https://github.com/yieldnest/vault-factory.git",
+      "branch": "feature/factory-v1",
+      "commit": "db03a36e3fb8df7304a5472dbe73e3983fdfb886",
+      "commit_message": "Bump yieldnest vault submodule"
+    },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
       "branch": "release-candidate",
