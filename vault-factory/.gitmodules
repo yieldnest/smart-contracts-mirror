@@ -11,3 +11,6 @@
 	path = lib/yieldnest-vault
 	url = https://github.com/yieldnest/yieldnest-vault
 	branch = rwa-max-vault
+[submodule "lib/yieldnest-flex-strategy"]
+	path = lib/yieldnest-flex-strategy
+	url = https://github.com/yieldnest/yieldnest-flex-strategy

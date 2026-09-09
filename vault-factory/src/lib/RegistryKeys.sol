@@ -15,4 +15,11 @@ library RegistryKeys {
     bytes32 internal constant BAG_FACTORY =
         keccak256("yieldnest.yieldnest-vault-withdrawals.contracts.src.BeaconProxyFactory");
     bytes32 internal constant BAG = keccak256("yieldnest.yieldnest-vault-withdrawals.contracts.src.Bag");
+    bytes32 internal constant FLEX_STRATEGY = keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.FlexStrategy");
+    bytes32 internal constant ACCOUNTING_MODULE =
+        keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.AccountingModule");
+    bytes32 internal constant ACCOUNTING_TOKEN_FACTORY =
+        keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.factory.AccountingTokenFactory");
+    bytes32 internal constant REWARDS_SWEEPER =
+        keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.utils.RewardsSweeper");
 }

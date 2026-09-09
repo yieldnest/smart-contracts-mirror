@@ -43,9 +43,8 @@ contract CreateVault is Script {
             bootstrapReceiver: CONTROLLER
         });
 
-        IVaultFactory.FlexStrategyParams memory flexParams = IVaultFactory.FlexStrategyParams({
-            deployStrategy: false, multisig: address(0), offRampAddress: address(0), deployData: ""
-        });
+        // No flex strategy for this deployment; all other fields stay zeroed.
+        IVaultFactory.FlexStrategyParams memory flexParams;
 
         vm.startBroadcast();
         IERC20(USDC).approve(factory, BOOTSTRAP_AMOUNT);

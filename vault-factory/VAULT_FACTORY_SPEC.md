@@ -68,8 +68,8 @@ The Wrapped Token is deployed behind the same OpenZeppelin Transparent Upgradeab
 
 The factory deploys the vault's rate provider; vault creators do not supply one.
 
-- Without a flex strategy, the factory deploys the yieldnest-vault `BaseAssetProvider`, pricing the Default Asset at a fixed rate of 1e18 (par). The wrapper (when present) never holds a balance and is never priced.
-- With a flex strategy (future revision), the factory will instead deploy the yieldnest-vault `Provider`, wired to the wrapper and the strategy.
+- Without a flex strategy, the factory deploys the `BaseAssetProvider`, pricing the Default Asset at a fixed rate of 1e18 (par). The wrapper (when present) never holds a balance and is never priced.
+- With a flex strategy, the factory instead deploys the `FlexProvider`, pricing the effective Base Asset and the Default Asset at par and the strategy's shares at the strategy's live redemption rate (`convertToAssets`).
 
 Provider changes remain a critical timelocked operation.
 
@@ -152,6 +152,10 @@ The registry keys used by the factory are fixed constants compiled into the fact
 - `yieldnest.yieldnest-vault-withdrawals.contracts.src.WithdrawalRequest`
 - `yieldnest.yieldnest-vault-withdrawals.contracts.src.withdrawers.BaseWithdrawer`
 - `yieldnest.yieldnest-vault-withdrawals.contracts.src.BeaconProxyFactory`
+- `yieldnest.yieldnest-flex-strategy.contracts.src.FlexStrategy`
+- `yieldnest.yieldnest-flex-strategy.contracts.src.AccountingModule`
+- `yieldnest.yieldnest-flex-strategy.contracts.src.factory.AccountingTokenFactory`
+- `yieldnest.yieldnest-flex-strategy.contracts.src.utils.RewardsSweeper`
 - `yieldnest.yieldnest-vault-withdrawals.contracts.src.Bag`
 
 ### Hooks
@@ -192,39 +196,34 @@ The WithdrawalRequest pauser is the same `pauser` address used for the Main Vaul
 
 ### Flex strategy - OPTIONAL
 
-TODO: factory deployment of the flex strategy is out of scope for this revision.
+When `deployStrategy` is true, the factory deploys the full flex strategy system alongside the vault, via a `FlexStrategyDeployer` library. All upgradeable pieces use the same Transparent Upgradeable Proxy pattern, with proxy admins owned by the vault's deployment timelock; implementations are read from the registry:
 
-The flex strategy may be optionally added manually later.
+- **FlexStrategy** — the strategy vault. Its base asset is the vault's raw `baseAsset` (the Default Asset) with matching decimals. Initialized paused, unpaused only after configuration is complete.
+- **AccountingToken** — a per-asset implementation is created through the registered `AccountingTokenFactory` and proxied.
+- **AccountingModule** — wired to the strategy, the accounting token, and the custody `multisig`, with `targetApy`, `lowerBound`, `minRewardableAssets`, and a 1 hour rewards cooldown.
+- **RewardsSweeper** — wired to the accounting module and granted `REWARDS_PROCESSOR_ROLE` on it.
+- **FixedRateProvider** — the strategy's rate provider, pricing the base asset and accounting token at par.
 
-The factory keeps the `deployStrategy` parameter as an explicit placeholder for a future revision.
-
-The additional parameters here are:
+Role assignment mirrors the Main Vault policy: every critical role (`DEFAULT_ADMIN_ROLE` and all manager roles, `SAFE_MANAGER_ROLE`) goes to the deployment timelock; `PROCESSOR_ROLE`, `PAUSER_ROLE`, and `UNPAUSER_ROLE` go to the vault's actor parameters; `REWARDS_PROCESSOR_ROLE` goes to `accountingProcessor`; `LOSS_PROCESSOR_ROLE` goes to the multisig. All temporary factory roles are renounced.
 
 #### Parameters
 
-The parameters are the ones specified here:
-
-https://github.com/yieldnest/yieldnest-flex-strategy/blob/main/script/FlexStrategyDeployer.sol#L16
-
-Additional factory parameter:
-
+- **multisig:** the custody safe; receives strategy funds via the accounting module and holds `LOSS_PROCESSOR_ROLE`.
+- **accountingProcessor:** granted `REWARDS_PROCESSOR_ROLE` on the accounting module.
+- **targetApy / lowerBound / minRewardableAssets:** accounting module configuration.
+- **strategyName / strategySymbol / accountingTokenName / accountingTokenSymbol:** token metadata.
 - **offRampAddress:**  
-  The address that is allowed to receive the flex strategy asset from the flex strategy multisig through the SafeGuard module.
-
-
-The rules here are that the base asset is the same base asset as the Main Vault.
-
-paused is false.
+  The address that is allowed to receive the flex strategy asset from the flex strategy multisig through the SafeGuard module. Reserved until SafeGuard deployment is added.
 
 The Allocators contains the Main Vault and the factory contract that will make the first boostrap deposit.
 
 Once that boostrap action is done, the role is renounced.
 
-
+The strategy's shares are added as the Main Vault's third asset and priced by the `FlexProvider`.
 
 #### Flex strategy deposit rules
 
-The vault also preloads deposit/mint withdraw/redeem rules for the flex strategy if it exists.
+The vault preloads processor rules for operating the strategy: `approve` on the Default Asset (spender restricted to the strategy) and `deposit`/`mint`/`withdraw`/`redeem` on the strategy with the vault as the only allowed receiver and owner. The strategy itself is preloaded with rules restricting its processor to `deposit`/`withdraw` on the accounting module, with withdrawals landing only on the strategy.
 
 #### Flex strategy multisig SafeGuard
 
@@ -244,3 +243,5 @@ Eg. 1 USDC (1e6 in wei), 1 USDT (1e6 in Wei), 1 SUSD, (1e18 in wei).
 The factory create call transfers the asset or assets away from the users.
 
 The factory enforces a minimum bootstrap amount of one unit of the default asset (10^decimals) and reverts below it.
+
+With a flex strategy, the factory pulls the bootstrap amount twice: once for the Main Vault deposit and once for the strategy deposit. The strategy bootstrap runs after the vault bootstrap (so it cannot dilute the vault's first mint), deposits into the strategy with the Main Vault as the receiver of the strategy shares, asserts the exact expected first mint, and then renounces the factory's `ALLOCATOR_ROLE`.

@@ -5,6 +5,12 @@
   "lib/openzeppelin-contracts-upgradeable": {
     "rev": "fffcb3c8ec0ad1ee559976f0b1709ae2fdc60702"
   },
+  "lib/yieldnest-flex-strategy": {
+    "tag": {
+      "name": "v0.2.0",
+      "rev": "a92274119431488c71eed4b2b62a9b29366a67ba"
+    }
+  },
   "lib/yieldnest-vault": {
     "branch": {
       "name": "rwa-max-vault",

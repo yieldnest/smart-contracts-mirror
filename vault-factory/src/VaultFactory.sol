@@ -13,10 +13,14 @@ import {IWithdrawalRequest} from "src/interfaces/external/IWithdrawalRequest.sol
 import {IWithdrawer} from "src/interfaces/external/IWithdrawer.sol";
 import {IWrappedToken} from "src/interfaces/external/IWrappedToken.sol";
 import {MinAmountRequestPolicy} from "yieldnest-vault-withdrawals/src/policies/MinAmountRequestPolicy.sol";
+import {FlexStrategyDeployer} from "src/lib/FlexStrategyDeployer.sol";
+import {IFlexStrategy} from "src/interfaces/external/IFlexStrategy.sol";
 import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {TimelockDeployer} from "src/lib/TimelockDeployer.sol";
 import {UninitializedTransparentUpgradeableProxy} from "src/proxy/UninitializedTransparentUpgradeableProxy.sol";
 import {BaseAssetProvider} from "src/provider/BaseAssetProvider.sol";
+
+contract NonceMarker {}
 
 contract VaultFactory is IVaultFactory {
     using SafeERC20 for IERC20;
@@ -56,18 +60,30 @@ contract VaultFactory is IVaultFactory {
         created.vault = address(new UninitializedTransparentUpgradeableProxy(vaultLogic, address(timelock)));
 
         if (flexParams.deployStrategy) {
-            // TODO: Deploy and configure the flex strategy once its deployment API is finalized.
-            // TODO: Deploy the yieldnest-vault Provider wired to the wrapper and the flex strategy
-            // instead of the single-asset BaseAssetProvider.
             // TODO: Deploy and configure the flex strategy SafeGuard once its deployment API is finalized.
-            revert FunctionalityUnavailable();
+            FlexStrategyDeployer.FlexSystem memory flex =
+                FlexStrategyDeployer.deploy(_flexConfig(created.vault, address(timelock), params, flexParams, assets));
+            created.flexStrategy = flex.strategy;
+            created.accountingToken = flex.accountingToken;
+            created.accountingModule = flex.accountingModule;
+            created.rewardsSweeper = flex.rewardsSweeper;
+            created.provider = flex.vaultProvider;
+        } else {
+            created.provider =
+                address(new BaseAssetProvider(assets.effectiveBaseAsset, assets.defaultAsset, PROVIDER_RATE));
         }
-        // The wrapper never holds a balance, so only the default asset needs a rate.
-        created.provider = address(new BaseAssetProvider(assets.defaultAsset, PROVIDER_RATE));
 
         IVault vault = IVault(created.vault);
         _initializeVault(vault, params, assets);
         _configureVault(vault, assets, params, created.provider, address(timelock));
+
+        if (flexParams.deployStrategy) {
+            // The strategy's shares are a vault asset, priced by the FlexProvider at the
+            // strategy's live redemption rate. The vault's processor operates the strategy
+            // through the preloaded rules only.
+            vault.addAsset(created.flexStrategy, true);
+            FlexStrategyDeployer.configureVaultRules(created.vault, created.flexStrategy, params.baseAsset);
+        }
 
         WithdrawalSystem memory withdrawals = deployWithdrawalSystem(
             created.vault,
@@ -84,9 +100,72 @@ contract VaultFactory is IVaultFactory {
         vault.grantRole(vault.ASSET_WITHDRAWER_ROLE(), withdrawals.withdrawer);
 
         _bootstrap(vault, params);
+        if (flexParams.deployStrategy) {
+            _bootstrapStrategy(created.flexStrategy, created.vault, params);
+        }
         _renounceTemporaryRoles(vault);
 
         emit VaultCreated(msg.sender, created.vault, created.timelock, created);
+    }
+
+    function _flexConfig(
+        address vault,
+        address timelock,
+        VaultParams calldata params,
+        FlexStrategyParams calldata flexParams,
+        Assets memory assets
+    ) internal view returns (FlexStrategyDeployer.Config memory cfg) {
+        if (flexParams.multisig == address(0) || flexParams.accountingProcessor == address(0)) revert ZeroAddress();
+
+        cfg.vault = vault;
+        cfg.effectiveBaseAsset = assets.effectiveBaseAsset;
+        cfg.timelock = timelock;
+        cfg.baseAsset = params.baseAsset;
+        cfg.baseAssetDecimals = IERC20Metadata(params.baseAsset).decimals();
+        cfg.alwaysComputeTotalAssets = params.alwaysComputeTotalAssets;
+        cfg.processor = params.processor;
+        cfg.pauser = params.pauser;
+        cfg.unpauser = params.unpauser;
+        cfg.strategyLogic = _registryValue(RegistryKeys.FLEX_STRATEGY);
+        cfg.accountingModuleLogic = _registryValue(RegistryKeys.ACCOUNTING_MODULE);
+        cfg.accountingTokenFactory = _registryValue(RegistryKeys.ACCOUNTING_TOKEN_FACTORY);
+        cfg.rewardsSweeperLogic = _registryValue(RegistryKeys.REWARDS_SWEEPER);
+        cfg.safe = flexParams.multisig;
+        cfg.accountingProcessor = flexParams.accountingProcessor;
+        cfg.targetApy = flexParams.targetApy;
+        cfg.lowerBound = flexParams.lowerBound;
+        cfg.minRewardableAssets = flexParams.minRewardableAssets;
+        cfg.strategyName = flexParams.strategyName;
+        cfg.strategySymbol = flexParams.strategySymbol;
+        cfg.accountingTokenName = flexParams.accountingTokenName;
+        cfg.accountingTokenSymbol = flexParams.accountingTokenSymbol;
+    }
+
+    /// @dev Deposits one bootstrap amount of the base asset into the strategy with the vault as
+    /// the receiver of the strategy shares, then renounces the factory's ALLOCATOR_ROLE. Runs
+    /// after the vault bootstrap so the strategy shares cannot dilute the vault's first mint.
+    function _bootstrapStrategy(address strategy, address vault, VaultParams calldata params) internal {
+        IERC20 asset = IERC20(params.baseAsset);
+
+        asset.safeTransferFrom(msg.sender, address(this), params.bootstrapAmount);
+        asset.forceApprove(strategy, params.bootstrapAmount);
+        uint256 shares = IFlexStrategy(strategy).deposit(params.bootstrapAmount, vault);
+
+        // Same prefund protection as the vault bootstrap: the strategy is empty and its fixed
+        // rate provider prices the base asset at par, so the first mint must be exactly 1:1 in
+        // the strategy's own decimals.
+        if (shares != params.bootstrapAmount) revert BootstrapSharesMismatch(shares, params.bootstrapAmount);
+        asset.forceApprove(strategy, 0);
+
+        IFlexStrategy(strategy).renounceRole(FlexStrategyDeployer.ALLOCATOR_ROLE, address(this));
+    }
+
+    /// @notice Advances the factory CREATE nonce without deploying a vault.
+    /// @dev Intended as an operational escape hatch if a future CREATE-derived vault address is
+    /// prefunded before createVault executes.
+    function advanceNonce() external returns (address marker) {
+        marker = address(new NonceMarker());
+        emit NonceAdvanced(msg.sender, marker);
     }
 
     function _initializeVault(IVault vault, VaultParams calldata params, Assets memory assets) internal {
@@ -239,10 +318,20 @@ contract VaultFactory is IVaultFactory {
 
     function _bootstrap(IVault vault, VaultParams calldata params) internal {
         IERC20 asset = IERC20(params.baseAsset);
+        uint8 baseAssetDecimals = IERC20Metadata(params.baseAsset).decimals();
+        uint256 expectedShares = params.bootstrapAmount * 10 ** (VAULT_DECIMALS - baseAssetDecimals);
+
         asset.safeTransferFrom(msg.sender, address(this), params.bootstrapAmount);
         asset.forceApprove(address(vault), params.bootstrapAmount);
         vault.unpause();
-        vault.deposit(params.bootstrapAmount, params.bootstrapReceiver);
+        uint256 shares = vault.deposit(params.bootstrapAmount, params.bootstrapReceiver);
+
+        // The vault address is CREATE-predictable before deployment, so it can be prefunded.
+        // With live accounting enabled, prefunded balances are included while totalSupply is still
+        // zero, which can dilute the bootstrap deposit down to fewer shares or even zero. The
+        // first mint must therefore match the exact 1:1 normalized amount expected for an empty
+        // vault configured with the factory's fixed par provider.
+        if (shares != expectedShares) revert BootstrapSharesMismatch(shares, expectedShares);
         asset.forceApprove(address(vault), 0);
     }
 

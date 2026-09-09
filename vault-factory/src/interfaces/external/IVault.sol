@@ -2,6 +2,23 @@
 pragma solidity ^0.8.24;
 
 interface IVault {
+    enum ParamType {
+        UINT256,
+        ADDRESS
+    }
+
+    struct ParamRule {
+        ParamType paramType;
+        bool isArray;
+        address[] allowList;
+    }
+
+    struct FunctionRule {
+        bool isActive;
+        ParamRule[] paramRules;
+        address validator;
+    }
+
     function initialize(
         address admin,
         string memory name,
@@ -32,5 +49,6 @@ interface IVault {
     function setProvider(address provider) external;
     function setBuffer(address buffer) external;
     function unpause() external;
+    function setProcessorRule(address target, bytes4 functionSig, FunctionRule calldata rule) external;
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 }

@@ -65,22 +65,30 @@ contract DeployRegistry is Script {
     }
 
     function _keys() internal pure returns (bytes32[] memory keys) {
-        keys = new bytes32[](6);
+        keys = new bytes32[](10);
         keys[0] = RegistryKeys.VAULT;
         keys[1] = RegistryKeys.WRAPPED_TOKEN;
         keys[2] = RegistryKeys.WITHDRAWAL_REQUEST;
         keys[3] = RegistryKeys.WITHDRAWER;
         keys[4] = RegistryKeys.BAG_FACTORY;
         keys[5] = RegistryKeys.BAG;
+        keys[6] = RegistryKeys.FLEX_STRATEGY;
+        keys[7] = RegistryKeys.ACCOUNTING_MODULE;
+        keys[8] = RegistryKeys.ACCOUNTING_TOKEN_FACTORY;
+        keys[9] = RegistryKeys.REWARDS_SWEEPER;
     }
 
     function _values() internal pure returns (address[] memory values) {
-        values = new address[](6);
+        values = new address[](10);
         values[0] = RegistryImplementations.VAULT_IMPLEMENTATION;
         values[1] = RegistryImplementations.WRAPPED_TOKEN_IMPLEMENTATION;
         values[2] = RegistryImplementations.WITHDRAWAL_REQUEST_IMPLEMENTATION;
         values[3] = RegistryImplementations.WITHDRAWER_IMPLEMENTATION;
         values[4] = RegistryImplementations.BAG_FACTORY_IMPLEMENTATION;
         values[5] = RegistryImplementations.BAG_IMPLEMENTATION;
+        values[6] = RegistryImplementations.FLEX_STRATEGY_IMPLEMENTATION;
+        values[7] = RegistryImplementations.ACCOUNTING_MODULE_IMPLEMENTATION;
+        values[8] = RegistryImplementations.ACCOUNTING_TOKEN_FACTORY_IMPLEMENTATION;
+        values[9] = RegistryImplementations.REWARDS_SWEEPER_IMPLEMENTATION;
     }
 }

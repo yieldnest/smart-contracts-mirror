@@ -5,11 +5,15 @@ import {Test} from "forge-std/Test.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {IVaultFactory} from "src/interfaces/IVaultFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MinAmountRequestPolicy} from "yieldnest-vault-withdrawals/src/policies/MinAmountRequestPolicy.sol";
 import {Registry} from "src/Registry.sol";
 import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {VaultFactory} from "src/VaultFactory.sol";
 import {BaseAssetProvider} from "src/provider/BaseAssetProvider.sol";
+import {FixedRateProvider} from "src/provider/FixedRateProvider.sol";
+import {FlexProvider} from "src/provider/FlexProvider.sol";
+import {IVault as IVaultTypes} from "src/interfaces/external/IVault.sol";
 
 interface IProxyAdminOwner {
     function owner() external view returns (address);
@@ -115,6 +119,8 @@ contract MockUSDTToken {
 }
 
 contract MockVault {
+    uint8 public constant VAULT_DECIMALS = 18;
+
     bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -129,6 +135,7 @@ contract MockVault {
 
     mapping(bytes32 => mapping(address => bool)) public hasRole;
     mapping(address => bool) public activeAsset;
+    mapping(address => uint8) public assetDecimals;
     address[] public assets;
     mapping(address => uint256) public shareBalance;
 
@@ -183,10 +190,27 @@ contract MockVault {
     function addAsset(address asset, bool active) external onlyRole(ASSET_MANAGER_ROLE) {
         assets.push(asset);
         activeAsset[asset] = active;
+        assetDecimals[asset] = IERC20Metadata(asset).decimals();
     }
 
     function setProvider(address provider_) external onlyRole(PROVIDER_MANAGER_ROLE) {
         provider = provider_;
+    }
+
+    address[] public ruleTargets;
+    bytes4[] public ruleSigs;
+
+    function setProcessorRule(address target, bytes4 functionSig, IVaultTypes.FunctionRule calldata rule)
+        external
+        onlyRole(PROCESSOR_MANAGER_ROLE)
+    {
+        require(rule.isActive, "active");
+        ruleTargets.push(target);
+        ruleSigs.push(functionSig);
+    }
+
+    function ruleCount() external view returns (uint256) {
+        return ruleTargets.length;
     }
 
     function setBuffer(address buffer_) external onlyRole(BUFFER_MANAGER_ROLE) {
@@ -198,16 +222,23 @@ contract MockVault {
         paused = false;
     }
 
-    function deposit(uint256 amount, address receiver) external returns (uint256 shares) {
+    function deposit(uint256 amount, address receiver) public virtual returns (uint256 shares) {
         require(!paused, "paused");
         address asset = assets[defaultAssetIndex];
+        shares = amount * 10 ** (VAULT_DECIMALS - assetDecimals[asset]);
         // Tolerates no-return-data tokens like USDT, as the real vault's SafeERC20 usage does.
         (bool success, bytes memory data) =
             asset.call(abi.encodeCall(IERC20.transferFrom, (msg.sender, address(this), amount)));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "transfer");
-        shareBalance[receiver] += amount;
-        totalSupply += amount;
-        return amount;
+        shareBalance[receiver] += shares;
+        totalSupply += shares;
+    }
+}
+
+contract MockBadBootstrapVault is MockVault {
+    function deposit(uint256 amount, address receiver) public override returns (uint256 shares) {
+        shares = super.deposit(amount, receiver);
+        return shares / 2;
     }
 }
 
@@ -314,6 +345,217 @@ contract MockBagFactory {
 
 contract MockBag {}
 
+abstract contract MockAccessControl {
+    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
+    mapping(bytes32 => mapping(address => bool)) public hasRole;
+
+    modifier onlyRole(bytes32 role) {
+        require(hasRole[role][msg.sender], "role");
+        _;
+    }
+
+    function grantRole(bytes32 role, address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        hasRole[role][account] = true;
+    }
+
+    function renounceRole(bytes32 role, address callerConfirmation) external {
+        require(msg.sender == callerConfirmation, "confirmation");
+        hasRole[role][callerConfirmation] = false;
+    }
+}
+
+contract MockFlexStrategy is MockAccessControl {
+    bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    bytes32 public constant PROVIDER_MANAGER_ROLE = keccak256("PROVIDER_MANAGER_ROLE");
+    bytes32 public constant ASSET_MANAGER_ROLE = keccak256("ASSET_MANAGER_ROLE");
+    bytes32 public constant BUFFER_MANAGER_ROLE = keccak256("BUFFER_MANAGER_ROLE");
+    bytes32 public constant PROCESSOR_MANAGER_ROLE = keccak256("PROCESSOR_MANAGER_ROLE");
+    bytes32 public constant ALLOCATOR_MANAGER_ROLE = keccak256("ALLOCATOR_MANAGER_ROLE");
+    bytes32 public constant HOOKS_MANAGER_ROLE = keccak256("HOOKS_MANAGER_ROLE");
+    bytes32 public constant ALLOCATOR_ROLE = keccak256("ALLOCATOR_ROLE");
+    bytes32 public constant ACCOUNTING_MODULE_MANAGER_ROLE = keccak256("ACCOUNTING_MODULE_MANAGER_ROLE");
+
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    address public baseAsset;
+    address public accountingToken;
+    address public provider;
+    bool public paused;
+    bool public alwaysComputeTotalAssets;
+    bool public hasAllocator;
+    address public accountingModule;
+    bool public initialized;
+    mapping(address => uint256) public shareBalance;
+    address[] public ruleTargets;
+    bytes4[] public ruleSigs;
+
+    function initialize(
+        address admin,
+        address accountingModuleManager,
+        string memory name_,
+        string memory symbol_,
+        uint8 decimals_,
+        address baseAsset_,
+        address accountingToken_,
+        bool paused_,
+        address provider_,
+        bool alwaysComputeTotalAssets_
+    ) external {
+        require(!initialized, "initialized");
+        initialized = true;
+        hasRole[DEFAULT_ADMIN_ROLE][admin] = true;
+        hasRole[ACCOUNTING_MODULE_MANAGER_ROLE][accountingModuleManager] = true;
+        name = name_;
+        symbol = symbol_;
+        decimals = decimals_;
+        baseAsset = baseAsset_;
+        accountingToken = accountingToken_;
+        paused = paused_;
+        provider = provider_;
+        alwaysComputeTotalAssets = alwaysComputeTotalAssets_;
+    }
+
+    function setHasAllocator(bool hasAllocators_) external onlyRole(ALLOCATOR_MANAGER_ROLE) {
+        hasAllocator = hasAllocators_;
+    }
+
+    function setAccountingModule(address accountingModule_) external onlyRole(ACCOUNTING_MODULE_MANAGER_ROLE) {
+        accountingModule = accountingModule_;
+    }
+
+    function setProcessorRule(address target, bytes4 functionSig, IVaultTypes.FunctionRule calldata rule)
+        external
+        onlyRole(PROCESSOR_MANAGER_ROLE)
+    {
+        require(rule.isActive, "active");
+        ruleTargets.push(target);
+        ruleSigs.push(functionSig);
+    }
+
+    function ruleCount() external view returns (uint256) {
+        return ruleTargets.length;
+    }
+
+    function unpause() external onlyRole(UNPAUSER_ROLE) {
+        paused = false;
+    }
+
+    function deposit(uint256 amount, address receiver) external returns (uint256 shares) {
+        require(!paused, "paused");
+        if (hasAllocator) require(hasRole[ALLOCATOR_ROLE][msg.sender], "allocator");
+        require(MockToken(baseAsset).transferFrom(msg.sender, address(this), amount), "transfer");
+        shares = amount;
+        shareBalance[receiver] += shares;
+    }
+
+    function asset() external view returns (address) {
+        return baseAsset;
+    }
+
+    function convertToAssets(uint256 shares) external pure returns (uint256) {
+        return shares;
+    }
+}
+
+contract MockAccountingToken is MockAccessControl {
+    bytes32 public constant ACCOUNTING_MODULE_MANAGER_ROLE = keccak256("ACCOUNTING_MODULE_MANAGER_ROLE");
+
+    address public immutable TRACKED_ASSET;
+    uint8 private immutable trackedDecimals;
+
+    string public name;
+    string public symbol;
+    address public accountingModule;
+    bool public initialized;
+
+    constructor(address trackedAsset) {
+        TRACKED_ASSET = trackedAsset;
+        trackedDecimals = IERC20Metadata(trackedAsset).decimals();
+    }
+
+    function initialize(address admin, address accountingModuleManager, string memory name_, string memory symbol_)
+        external
+    {
+        require(!initialized, "initialized");
+        initialized = true;
+        hasRole[DEFAULT_ADMIN_ROLE][admin] = true;
+        hasRole[ACCOUNTING_MODULE_MANAGER_ROLE][accountingModuleManager] = true;
+        name = name_;
+        symbol = symbol_;
+    }
+
+    function decimals() external view returns (uint8) {
+        return trackedDecimals;
+    }
+
+    function setAccountingModule(address accountingModule_) external onlyRole(ACCOUNTING_MODULE_MANAGER_ROLE) {
+        accountingModule = accountingModule_;
+    }
+}
+
+contract MockAccountingTokenFactory {
+    function deployAccountingTokenImplementation(address trackedAsset) external returns (address) {
+        return address(new MockAccountingToken(trackedAsset));
+    }
+}
+
+contract MockAccountingModule is MockAccessControl {
+    bytes32 public constant SAFE_MANAGER_ROLE = keccak256("SAFE_MANAGER_ROLE");
+    bytes32 public constant REWARDS_PROCESSOR_ROLE = keccak256("REWARDS_PROCESSOR_ROLE");
+    bytes32 public constant LOSS_PROCESSOR_ROLE = keccak256("LOSS_PROCESSOR_ROLE");
+
+    address public strategy;
+    address public safe;
+    address public accountingToken;
+    uint256 public targetApy;
+    uint256 public lowerBound;
+    uint256 public minRewardableAssets;
+    uint16 public cooldownSeconds;
+    bool public initialized;
+
+    function initialize(
+        address strategy_,
+        address admin,
+        address safe_,
+        address accountingToken_,
+        uint256 targetApy_,
+        uint256 lowerBound_,
+        uint256 minRewardableAssets_,
+        uint16 cooldownSeconds_
+    ) external {
+        require(!initialized, "initialized");
+        initialized = true;
+        hasRole[DEFAULT_ADMIN_ROLE][admin] = true;
+        strategy = strategy_;
+        safe = safe_;
+        accountingToken = accountingToken_;
+        targetApy = targetApy_;
+        lowerBound = lowerBound_;
+        minRewardableAssets = minRewardableAssets_;
+        cooldownSeconds = cooldownSeconds_;
+    }
+}
+
+contract MockRewardsSweeper is MockAccessControl {
+    bytes32 public constant REWARDS_SWEEPER_ROLE = keccak256("REWARDS_SWEEPER_ROLE");
+    bytes32 public constant SNAPSHOT_REWARDS_SWEEPER_ROLE = keccak256("SNAPSHOT_REWARDS_SWEEPER_ROLE");
+    bytes32 public constant ACCOUNTING_MODULE_MANAGER_ROLE = keccak256("ACCOUNTING_MODULE_MANAGER_ROLE");
+
+    address public accountingModule;
+    bool public initialized;
+
+    function initialize(address admin, address accountingModuleManager, address accountingModule_) external {
+        require(!initialized, "initialized");
+        initialized = true;
+        hasRole[DEFAULT_ADMIN_ROLE][admin] = true;
+        hasRole[ACCOUNTING_MODULE_MANAGER_ROLE][accountingModuleManager] = true;
+        accountingModule = accountingModule_;
+    }
+}
+
 contract VaultFactoryTest is Test {
     bytes32 private constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
@@ -335,6 +577,10 @@ contract VaultFactoryTest is Test {
     MockWithdrawer private withdrawerLogic;
     MockBagFactory private bagFactoryLogic;
     MockBag private bagLogic;
+    MockFlexStrategy private flexStrategyLogic;
+    MockAccountingModule private accountingModuleLogic;
+    MockAccountingTokenFactory private accountingTokenFactory;
+    MockRewardsSweeper private rewardsSweeperLogic;
 
     function setUp() public {
         Registry registryLogic = new Registry();
@@ -358,6 +604,16 @@ contract VaultFactoryTest is Test {
         registry.setValue(RegistryKeys.WITHDRAWER, address(withdrawerLogic));
         registry.setValue(RegistryKeys.BAG_FACTORY, address(bagFactoryLogic));
         registry.setValue(RegistryKeys.BAG, address(bagLogic));
+
+        flexStrategyLogic = new MockFlexStrategy();
+        accountingModuleLogic = new MockAccountingModule();
+        accountingTokenFactory = new MockAccountingTokenFactory();
+        rewardsSweeperLogic = new MockRewardsSweeper();
+
+        registry.setValue(RegistryKeys.FLEX_STRATEGY, address(flexStrategyLogic));
+        registry.setValue(RegistryKeys.ACCOUNTING_MODULE, address(accountingModuleLogic));
+        registry.setValue(RegistryKeys.ACCOUNTING_TOKEN_FACTORY, address(accountingTokenFactory));
+        registry.setValue(RegistryKeys.REWARDS_SWEEPER, address(rewardsSweeperLogic));
 
         asset.mint(creator, 1 ether);
     }
@@ -384,6 +640,7 @@ contract VaultFactoryTest is Test {
 
         BaseAssetProvider providerContract = BaseAssetProvider(created.provider);
         assertEq(providerContract.baseAsset(), address(asset));
+        assertEq(providerContract.defaultAsset(), address(asset));
         assertEq(providerContract.rate(), 1e18);
         assertEq(providerContract.getRate(address(asset)), 1e18);
         assertEq(vault.shareBalance(bootstrapReceiver), 1 ether);
@@ -477,11 +734,12 @@ contract VaultFactoryTest is Test {
         assertEq(vault.assets(1), address(usdc));
         assertTrue(vault.activeAsset(address(usdc)));
         assertEq(vault.defaultAssetIndex(), 1);
-        assertEq(vault.shareBalance(bootstrapReceiver), 1e6);
+        assertEq(vault.shareBalance(bootstrapReceiver), 1 ether);
         assertEq(usdc.balanceOf(created.vault), 1e6);
 
-        // The provider prices the default asset, not the zero-balance wrapper.
-        assertEq(BaseAssetProvider(created.provider).baseAsset(), address(usdc));
+        assertEq(BaseAssetProvider(created.provider).baseAsset(), created.wrappedToken);
+        assertEq(BaseAssetProvider(created.provider).defaultAsset(), address(usdc));
+        assertEq(BaseAssetProvider(created.provider).getRate(created.wrappedToken), 1e18);
         assertEq(BaseAssetProvider(created.provider).getRate(address(usdc)), 1e18);
 
         address wrapperProxyAdmin = address(uint160(uint256(vm.load(created.wrappedToken, ERC1967_ADMIN_SLOT))));
@@ -501,20 +759,167 @@ contract VaultFactoryTest is Test {
         vm.stopPrank();
 
         MockVault vault = MockVault(created.vault);
-        assertEq(vault.shareBalance(bootstrapReceiver), 1e6);
+        assertEq(vault.shareBalance(bootstrapReceiver), 1 ether);
         assertEq(usdt.balanceOf(created.vault), 1e6);
         assertEq(usdt.allowance(address(factory), created.vault), 0);
     }
 
-    function testCreateVaultRevertsWhenFlexStrategyRequested() public {
-        bytes memory deployData = abi.encode("flex config");
-        IVaultFactory.FlexStrategyParams memory flexParams = IVaultFactory.FlexStrategyParams({
-            deployStrategy: true, multisig: address(0x5AFE), offRampAddress: address(0x0FF), deployData: deployData
-        });
+    function testCreateVaultRevertsWhenBootstrapSharesMismatch() public {
+        MockBadBootstrapVault badVaultLogic = new MockBadBootstrapVault();
+        registry.setValue(RegistryKeys.VAULT, address(badVaultLogic));
 
         vm.startPrank(creator);
         asset.approve(address(factory), 1 ether);
-        vm.expectRevert(IVaultFactory.FunctionalityUnavailable.selector);
+        vm.expectRevert(abi.encodeWithSelector(IVaultFactory.BootstrapSharesMismatch.selector, 0.5 ether, 1 ether));
+        factory.createVault(_vaultParams(1 ether), _emptyFlexParams());
+        vm.stopPrank();
+    }
+
+    function testCreateVaultDeploysFlexStrategy() public {
+        MockToken usdc = new MockToken(6);
+        // Vault bootstrap plus strategy bootstrap.
+        usdc.mint(creator, 2e6);
+
+        IVaultFactory.VaultParams memory params = _vaultParams(1e6);
+        params.baseAsset = address(usdc);
+
+        vm.startPrank(creator);
+        usdc.approve(address(factory), 2e6);
+        IVaultFactory.CreatedVault memory created = factory.createVault(params, _flexParams());
+        vm.stopPrank();
+
+        MockVault vault = MockVault(created.vault);
+        MockFlexStrategy strategy = MockFlexStrategy(created.flexStrategy);
+        MockAccountingToken accountingToken = MockAccountingToken(created.accountingToken);
+        MockAccountingModule accountingModule = MockAccountingModule(created.accountingModule);
+        MockRewardsSweeper rewardsSweeper = MockRewardsSweeper(created.rewardsSweeper);
+
+        // Strategy initialization and wiring.
+        assertTrue(strategy.initialized());
+        assertEq(strategy.name(), "Flex Strategy");
+        assertEq(strategy.symbol(), "FLEX");
+        assertEq(strategy.decimals(), 6);
+        assertEq(strategy.baseAsset(), address(usdc));
+        assertEq(strategy.accountingToken(), created.accountingToken);
+        assertEq(strategy.accountingModule(), created.accountingModule);
+        assertFalse(strategy.paused());
+        assertTrue(strategy.hasAllocator());
+
+        // The vault provider prices the wrapper, the default asset, and the strategy.
+        FlexProvider provider = FlexProvider(created.provider);
+        assertEq(vault.provider(), created.provider);
+        assertEq(provider.baseAsset(), created.wrappedToken);
+        assertEq(provider.defaultAsset(), address(usdc));
+        assertEq(provider.strategy(), created.flexStrategy);
+        assertEq(provider.getRate(created.wrappedToken), 1e18);
+        assertEq(provider.getRate(address(usdc)), 1e18);
+        assertEq(provider.getRate(created.flexStrategy), 1e18);
+
+        // The strategy's own provider prices the base asset and accounting token at par.
+        FixedRateProvider strategyProvider = FixedRateProvider(strategy.provider());
+        assertEq(strategyProvider.ASSET(), address(usdc));
+        assertEq(strategyProvider.ACCOUNTING_TOKEN(), created.accountingToken);
+        assertEq(strategyProvider.getRate(address(usdc)), 1e6);
+
+        // Strategy shares are the vault's third asset.
+        assertEq(vault.assets(0), created.wrappedToken);
+        assertEq(vault.assets(1), address(usdc));
+        assertEq(vault.assets(2), created.flexStrategy);
+
+        // Vault rules: approve on the default asset plus deposit/mint/withdraw/redeem on the strategy.
+        assertEq(vault.ruleCount(), 5);
+        assertEq(vault.ruleTargets(0), address(usdc));
+        assertEq(vault.ruleSigs(0), bytes4(keccak256("approve(address,uint256)")));
+        assertEq(vault.ruleTargets(1), created.flexStrategy);
+        assertEq(vault.ruleSigs(1), bytes4(keccak256("deposit(uint256,address)")));
+        assertEq(vault.ruleSigs(2), bytes4(keccak256("mint(uint256,address)")));
+        assertEq(vault.ruleSigs(3), bytes4(keccak256("withdraw(uint256,address,address)")));
+        assertEq(vault.ruleSigs(4), bytes4(keccak256("redeem(uint256,address,address)")));
+
+        // Strategy rules: the strategy processor may only use the accounting module.
+        assertEq(strategy.ruleCount(), 2);
+        assertEq(strategy.ruleTargets(0), created.accountingModule);
+        assertEq(strategy.ruleSigs(0), bytes4(keccak256("deposit(uint256)")));
+        assertEq(strategy.ruleTargets(1), created.accountingModule);
+        assertEq(strategy.ruleSigs(1), bytes4(keccak256("withdraw(uint256,address)")));
+
+        // Strategy roles: timelock critical, actors operational, vault allocator, factory clean.
+        assertTrue(strategy.hasRole(strategy.DEFAULT_ADMIN_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.PROCESSOR_ROLE(), processor));
+        assertTrue(strategy.hasRole(strategy.PAUSER_ROLE(), pauser));
+        assertTrue(strategy.hasRole(strategy.UNPAUSER_ROLE(), unpauser));
+        assertTrue(strategy.hasRole(strategy.PROVIDER_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.ASSET_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.BUFFER_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.PROCESSOR_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.ALLOCATOR_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.HOOKS_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.ACCOUNTING_MODULE_MANAGER_ROLE(), created.timelock));
+        assertTrue(strategy.hasRole(strategy.ALLOCATOR_ROLE(), created.vault));
+        assertFalse(strategy.hasRole(strategy.ALLOCATOR_ROLE(), address(factory)));
+        assertFalse(strategy.hasRole(strategy.DEFAULT_ADMIN_ROLE(), address(factory)));
+        assertFalse(strategy.hasRole(strategy.PROCESSOR_MANAGER_ROLE(), address(factory)));
+        assertFalse(strategy.hasRole(strategy.ALLOCATOR_MANAGER_ROLE(), address(factory)));
+        assertFalse(strategy.hasRole(strategy.UNPAUSER_ROLE(), address(factory)));
+        assertFalse(strategy.hasRole(strategy.ACCOUNTING_MODULE_MANAGER_ROLE(), address(factory)));
+
+        // Accounting token wiring.
+        assertEq(accountingToken.TRACKED_ASSET(), address(usdc));
+        assertEq(accountingToken.name(), "Flex Accounting");
+        assertEq(accountingToken.symbol(), "aFLEX");
+        assertEq(accountingToken.accountingModule(), created.accountingModule);
+        assertTrue(accountingToken.hasRole(accountingToken.DEFAULT_ADMIN_ROLE(), created.timelock));
+        assertTrue(accountingToken.hasRole(accountingToken.ACCOUNTING_MODULE_MANAGER_ROLE(), created.timelock));
+        assertFalse(accountingToken.hasRole(accountingToken.DEFAULT_ADMIN_ROLE(), address(factory)));
+        assertFalse(accountingToken.hasRole(accountingToken.ACCOUNTING_MODULE_MANAGER_ROLE(), address(factory)));
+
+        // Accounting module wiring.
+        assertEq(accountingModule.strategy(), created.flexStrategy);
+        assertEq(accountingModule.safe(), address(0x5AFE));
+        assertEq(accountingModule.accountingToken(), created.accountingToken);
+        assertEq(accountingModule.targetApy(), 0.05e18);
+        assertEq(accountingModule.lowerBound(), 0.01e18);
+        assertEq(accountingModule.minRewardableAssets(), 100e6);
+        assertEq(accountingModule.cooldownSeconds(), 1 hours);
+        assertTrue(accountingModule.hasRole(accountingModule.DEFAULT_ADMIN_ROLE(), created.timelock));
+        assertTrue(accountingModule.hasRole(accountingModule.SAFE_MANAGER_ROLE(), created.timelock));
+        assertTrue(accountingModule.hasRole(accountingModule.REWARDS_PROCESSOR_ROLE(), address(0xACC0)));
+        assertTrue(accountingModule.hasRole(accountingModule.REWARDS_PROCESSOR_ROLE(), created.rewardsSweeper));
+        assertTrue(accountingModule.hasRole(accountingModule.LOSS_PROCESSOR_ROLE(), address(0x5AFE)));
+        assertFalse(accountingModule.hasRole(accountingModule.DEFAULT_ADMIN_ROLE(), address(factory)));
+
+        // Rewards sweeper wiring.
+        assertEq(rewardsSweeper.accountingModule(), created.accountingModule);
+        assertTrue(rewardsSweeper.hasRole(rewardsSweeper.DEFAULT_ADMIN_ROLE(), created.timelock));
+        assertTrue(rewardsSweeper.hasRole(rewardsSweeper.ACCOUNTING_MODULE_MANAGER_ROLE(), created.timelock));
+        assertTrue(rewardsSweeper.hasRole(rewardsSweeper.REWARDS_SWEEPER_ROLE(), processor));
+        assertTrue(rewardsSweeper.hasRole(rewardsSweeper.SNAPSHOT_REWARDS_SWEEPER_ROLE(), processor));
+        assertFalse(rewardsSweeper.hasRole(rewardsSweeper.DEFAULT_ADMIN_ROLE(), address(factory)));
+
+        // Bootstraps: vault holds one unit of USDC, strategy holds the other with shares to the vault.
+        assertEq(vault.shareBalance(bootstrapReceiver), 1e18);
+        assertEq(usdc.balanceOf(created.vault), 1e6);
+        assertEq(usdc.balanceOf(created.flexStrategy), 1e6);
+        assertEq(strategy.shareBalance(created.vault), 1e6);
+
+        // All strategy-system proxies share the vault timelock as proxy admin owner.
+        address strategyProxyAdmin = address(uint160(uint256(vm.load(created.flexStrategy, ERC1967_ADMIN_SLOT))));
+        assertEq(IProxyAdminOwner(strategyProxyAdmin).owner(), created.timelock);
+        address tokenProxyAdmin = address(uint160(uint256(vm.load(created.accountingToken, ERC1967_ADMIN_SLOT))));
+        assertEq(IProxyAdminOwner(tokenProxyAdmin).owner(), created.timelock);
+        address moduleProxyAdmin = address(uint160(uint256(vm.load(created.accountingModule, ERC1967_ADMIN_SLOT))));
+        assertEq(IProxyAdminOwner(moduleProxyAdmin).owner(), created.timelock);
+        address sweeperProxyAdmin = address(uint160(uint256(vm.load(created.rewardsSweeper, ERC1967_ADMIN_SLOT))));
+        assertEq(IProxyAdminOwner(sweeperProxyAdmin).owner(), created.timelock);
+    }
+
+    function testCreateVaultFlexStrategyRequiresMultisigAndProcessor() public {
+        IVaultFactory.FlexStrategyParams memory flexParams = _flexParams();
+        flexParams.multisig = address(0);
+
+        vm.startPrank(creator);
+        asset.approve(address(factory), 1 ether);
+        vm.expectRevert(IVaultFactory.ZeroAddress.selector);
         factory.createVault(_vaultParams(1 ether), flexParams);
         vm.stopPrank();
     }
@@ -587,6 +992,15 @@ contract VaultFactoryTest is Test {
         vm.stopPrank();
     }
 
+    function testAdvanceNonceDeploysMarkerAndAdvancesFactoryNonce() public {
+        uint64 nonceBefore = vm.getNonce(address(factory));
+
+        address marker = factory.advanceNonce();
+
+        assertEq(vm.getNonce(address(factory)), nonceBefore + 1);
+        assertGt(marker.code.length, 0);
+    }
+
     function _vaultParams(uint256 bootstrapAmount) internal view returns (IVaultFactory.VaultParams memory) {
         return IVaultFactory.VaultParams({
             admin: admin,
@@ -608,9 +1022,23 @@ contract VaultFactoryTest is Test {
         });
     }
 
-    function _emptyFlexParams() internal pure returns (IVaultFactory.FlexStrategyParams memory) {
+    function _emptyFlexParams() internal pure returns (IVaultFactory.FlexStrategyParams memory flexParams) {
+        flexParams.deployStrategy = false;
+    }
+
+    function _flexParams() internal pure returns (IVaultFactory.FlexStrategyParams memory) {
         return IVaultFactory.FlexStrategyParams({
-            deployStrategy: false, multisig: address(0), offRampAddress: address(0), deployData: ""
+            deployStrategy: true,
+            multisig: address(0x5AFE),
+            offRampAddress: address(0x0FF),
+            accountingProcessor: address(0xACC0),
+            targetApy: 0.05e18,
+            lowerBound: 0.01e18,
+            minRewardableAssets: 100e6,
+            strategyName: "Flex Strategy",
+            strategySymbol: "FLEX",
+            accountingTokenName: "Flex Accounting",
+            accountingTokenSymbol: "aFLEX"
         });
     }
 }
