@@ -5,6 +5,7 @@ import {IAccountingModule} from "src/interfaces/external/IAccountingModule.sol";
 import {IAccountingToken} from "src/interfaces/external/IAccountingToken.sol";
 import {IAccountingTokenFactory} from "src/interfaces/external/IAccountingTokenFactory.sol";
 import {IFlexStrategy} from "src/interfaces/external/IFlexStrategy.sol";
+import {IHooksDeployer} from "src/interfaces/external/IHooksDeployer.sol";
 import {IRewardsSweeper} from "src/interfaces/external/IRewardsSweeper.sol";
 import {IVault} from "src/interfaces/external/IVault.sol";
 import {FixedRateProvider} from "src/provider/FixedRateProvider.sol";
@@ -13,7 +14,7 @@ import {UninitializedTransparentUpgradeableProxy} from "src/proxy/UninitializedT
 
 /// @title FlexStrategyDeployer
 /// @notice Deploys and wires the flex strategy system for a vault, mirroring the upstream
-/// yieldnest-flex-strategy FlexStrategyDeployer minus hooks and SafeGuard deployment.
+/// yieldnest-flex-strategy FlexStrategyDeployer minus SafeGuard deployment.
 /// @dev External library so the deployment logic and embedded creation code live outside the
 /// factory bytecode. The delegatecall runs in the factory's context: the factory is the temporary
 /// admin during wiring and renounces everything except the strategy ALLOCATOR_ROLE, which the
@@ -46,14 +47,17 @@ library FlexStrategyDeployer {
         address baseAsset;
         uint8 baseAssetDecimals;
         bool alwaysComputeTotalAssets;
+        bool deployRewardsSweeper;
         address processor;
         address pauser;
         address unpauser;
-        // implementations resolved from the registry
+        // implementations resolved from the registry; rewardsSweeperLogic is only set (and only
+        // required) when deployRewardsSweeper is true
         address strategyLogic;
         address accountingModuleLogic;
         address accountingTokenFactory;
         address rewardsSweeperLogic;
+        address hooksDeployer;
         // flex parameters
         address safe;
         address accountingProcessor;
@@ -70,6 +74,7 @@ library FlexStrategyDeployer {
         address strategy;
         address accountingToken;
         address accountingModule;
+        address accountingModuleHook;
         address rewardsSweeper;
         address strategyRateProvider;
         address vaultProvider;
@@ -118,8 +123,7 @@ library FlexStrategyDeployer {
         // Per-asset accounting token implementation, then the proxy the system actually uses.
         address accountingTokenLogic =
             IAccountingTokenFactory(cfg.accountingTokenFactory).deployAccountingTokenImplementation(cfg.baseAsset);
-        sys.accountingToken =
-            address(new UninitializedTransparentUpgradeableProxy(accountingTokenLogic, cfg.timelock));
+        sys.accountingToken = address(new UninitializedTransparentUpgradeableProxy(accountingTokenLogic, cfg.timelock));
         IAccountingToken(sys.accountingToken)
             .initialize(address(this), address(this), cfg.accountingTokenName, cfg.accountingTokenSymbol);
 
@@ -154,9 +158,11 @@ library FlexStrategyDeployer {
                 ACCOUNTING_COOLDOWN_SECONDS
             );
 
-        sys.rewardsSweeper =
-            address(new UninitializedTransparentUpgradeableProxy(cfg.rewardsSweeperLogic, cfg.timelock));
-        IRewardsSweeper(sys.rewardsSweeper).initialize(address(this), address(this), sys.accountingModule);
+        if (cfg.deployRewardsSweeper) {
+            sys.rewardsSweeper =
+                address(new UninitializedTransparentUpgradeableProxy(cfg.rewardsSweeperLogic, cfg.timelock));
+            IRewardsSweeper(sys.rewardsSweeper).initialize(address(this), address(this), sys.accountingModule);
+        }
 
         sys.vaultProvider = address(new FlexProvider(cfg.effectiveBaseAsset, cfg.baseAsset, sys.strategy));
     }
@@ -168,6 +174,7 @@ library FlexStrategyDeployer {
         // with the factory until the strategy bootstrap deposit is done.
         strategy.grantRole(PROCESSOR_MANAGER_ROLE, address(this));
         strategy.grantRole(ALLOCATOR_MANAGER_ROLE, address(this));
+        strategy.grantRole(HOOKS_MANAGER_ROLE, address(this));
         strategy.grantRole(UNPAUSER_ROLE, address(this));
         strategy.grantRole(ALLOCATOR_ROLE, address(this));
 
@@ -188,6 +195,10 @@ library FlexStrategyDeployer {
         strategy.grantRole(ALLOCATOR_ROLE, cfg.vault);
 
         strategy.setAccountingModule(sys.accountingModule);
+        sys.accountingModuleHook =
+            IHooksDeployer(cfg.hooksDeployer).deployAccountingModuleHook(sys.strategy, sys.strategy);
+        strategy.setHooks(sys.accountingModuleHook);
+        strategy.grantRole(PROCESSOR_ROLE, sys.accountingModuleHook);
 
         // The strategy's processor may only move funds through the accounting module, and
         // withdrawals may only land back on the strategy.
@@ -213,20 +224,24 @@ library FlexStrategyDeployer {
         accountingModule.grantRole(DEFAULT_ADMIN_ROLE, cfg.timelock);
         accountingModule.grantRole(SAFE_MANAGER_ROLE, cfg.timelock);
         accountingModule.grantRole(REWARDS_PROCESSOR_ROLE, cfg.accountingProcessor);
-        accountingModule.grantRole(REWARDS_PROCESSOR_ROLE, sys.rewardsSweeper);
         accountingModule.grantRole(LOSS_PROCESSOR_ROLE, cfg.safe);
 
-        IRewardsSweeper rewardsSweeper = IRewardsSweeper(sys.rewardsSweeper);
-        rewardsSweeper.grantRole(DEFAULT_ADMIN_ROLE, cfg.timelock);
-        rewardsSweeper.grantRole(ACCOUNTING_MODULE_MANAGER_ROLE, cfg.timelock);
-        rewardsSweeper.grantRole(REWARDS_SWEEPER_ROLE, cfg.processor);
-        rewardsSweeper.grantRole(SNAPSHOT_REWARDS_SWEEPER_ROLE, cfg.processor);
+        if (sys.rewardsSweeper != address(0)) {
+            accountingModule.grantRole(REWARDS_PROCESSOR_ROLE, sys.rewardsSweeper);
+
+            IRewardsSweeper rewardsSweeper = IRewardsSweeper(sys.rewardsSweeper);
+            rewardsSweeper.grantRole(DEFAULT_ADMIN_ROLE, cfg.timelock);
+            rewardsSweeper.grantRole(ACCOUNTING_MODULE_MANAGER_ROLE, cfg.timelock);
+            rewardsSweeper.grantRole(REWARDS_SWEEPER_ROLE, cfg.processor);
+            rewardsSweeper.grantRole(SNAPSHOT_REWARDS_SWEEPER_ROLE, cfg.processor);
+        }
     }
 
     function _renounceTemporaryRoles(FlexSystem memory sys) internal {
         IFlexStrategy strategy = IFlexStrategy(sys.strategy);
         strategy.renounceRole(PROCESSOR_MANAGER_ROLE, address(this));
         strategy.renounceRole(ALLOCATOR_MANAGER_ROLE, address(this));
+        strategy.renounceRole(HOOKS_MANAGER_ROLE, address(this));
         strategy.renounceRole(UNPAUSER_ROLE, address(this));
         strategy.renounceRole(ACCOUNTING_MODULE_MANAGER_ROLE, address(this));
         strategy.renounceRole(DEFAULT_ADMIN_ROLE, address(this));
@@ -234,8 +249,11 @@ library FlexStrategyDeployer {
         IAccountingToken(sys.accountingToken).renounceRole(ACCOUNTING_MODULE_MANAGER_ROLE, address(this));
         IAccountingToken(sys.accountingToken).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
         IAccountingModule(sys.accountingModule).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
-        IRewardsSweeper(sys.rewardsSweeper).renounceRole(ACCOUNTING_MODULE_MANAGER_ROLE, address(this));
-        IRewardsSweeper(sys.rewardsSweeper).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
+
+        if (sys.rewardsSweeper != address(0)) {
+            IRewardsSweeper(sys.rewardsSweeper).renounceRole(ACCOUNTING_MODULE_MANAGER_ROLE, address(this));
+            IRewardsSweeper(sys.rewardsSweeper).renounceRole(DEFAULT_ADMIN_ROLE, address(this));
+        }
     }
 
     function _uintRule() internal pure returns (IVault.ParamRule memory) {

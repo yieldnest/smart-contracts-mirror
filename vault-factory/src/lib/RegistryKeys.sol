@@ -22,4 +22,7 @@ library RegistryKeys {
         keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.factory.AccountingTokenFactory");
     bytes32 internal constant REWARDS_SWEEPER =
         keccak256("yieldnest.yieldnest-flex-strategy.contracts.src.utils.RewardsSweeper");
+    bytes32 internal constant SAFE_GUARD = keccak256("yieldnest.safeguard.contracts.src.SafeGuard");
+    bytes32 internal constant HOOKS_DEPLOYER =
+        keccak256("yieldnest.yieldnest-flex-strategy.contracts.script.HooksDeployer");
 }

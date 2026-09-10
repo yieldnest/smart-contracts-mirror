@@ -13,6 +13,7 @@ import {Registry} from "src/Registry.sol";
 import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {VaultFactory} from "src/VaultFactory.sol";
 import {RegistryImplementations} from "script/RegistryImplementations.sol";
+import {TestConstants} from "test/lib/TestConstants.sol";
 
 interface IUpgradeableBeaconFactoryView {
     function implementation() external view returns (address);
@@ -22,20 +23,6 @@ interface IUpgradeableBeaconFactoryView {
 contract UpgradeTarget {}
 
 contract VaultFactoryUpgradeabilityIntegrationTest is Test {
-    bytes32 private constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-    bytes32 private constant ERC1967_IMPLEMENTATION_SLOT =
-        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
-    address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address private constant ADMIN = 0x0e46F77dbe0b6e9782bDe5596cdAb025C222cC5d;
-    address private constant PROCESSOR = 0x1000000000000000000000000000000000000001;
-    address private constant PAUSER = 0x1000000000000000000000000000000000000002;
-    address private constant UNPAUSER = 0x1000000000000000000000000000000000000003;
-    address private constant FEE_MANAGER = 0x1000000000000000000000000000000000000004;
-    address private constant RESOLVER = 0x1000000000000000000000000000000000000005;
-    address private constant BOOTSTRAP_RECEIVER = 0x1000000000000000000000000000000000000006;
-    address private constant CREATOR = 0x1000000000000000000000000000000000000007;
-
     uint256 private constant BOOTSTRAP_AMOUNT = 1e6;
 
     IRegistry internal registry;
@@ -51,10 +38,10 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         _populateRegistry();
         factory = new VaultFactory(registry);
 
-        deal(USDC, CREATOR, BOOTSTRAP_AMOUNT);
+        deal(TestConstants.USDC, TestConstants.CREATOR, BOOTSTRAP_AMOUNT);
 
-        vm.startPrank(CREATOR);
-        IERC20(USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
+        vm.startPrank(TestConstants.CREATOR);
+        IERC20(TestConstants.USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
         created = factory.createVault(_vaultParams(), _emptyFlexParams());
         vm.stopPrank();
     }
@@ -106,13 +93,13 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
 
     function _vaultParams() internal pure returns (IVaultFactory.VaultParams memory) {
         return IVaultFactory.VaultParams({
-            admin: ADMIN,
-            processor: PROCESSOR,
-            pauser: PAUSER,
-            unpauser: UNPAUSER,
-            feeManager: FEE_MANAGER,
-            resolver: RESOLVER,
-            baseAsset: USDC,
+            admin: TestConstants.ADMIN,
+            processor: TestConstants.PROCESSOR,
+            pauser: TestConstants.PAUSER,
+            unpauser: TestConstants.UNPAUSER,
+            feeManager: TestConstants.FEE_MANAGER,
+            resolver: TestConstants.RESOLVER,
+            baseAsset: TestConstants.USDC,
             tokenName: "Whitelabel USDC RWA",
             tokenSymbol: "WLRWA",
             countNativeAsset: false,
@@ -121,7 +108,7 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
             minWithdrawalAmount: 0.1 ether,
             maxDataLength: 256,
             bootstrapAmount: BOOTSTRAP_AMOUNT,
-            bootstrapReceiver: BOOTSTRAP_RECEIVER
+            bootstrapReceiver: TestConstants.BOOTSTRAP_RECEIVER
         });
     }
 
@@ -132,7 +119,7 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
     function _timelockUpgradeProxy(address proxy, address newImplementation, string memory label) internal {
         assertTrue(_implementation(proxy) != newImplementation, string.concat(label, " precondition"));
 
-        address proxyAdmin = address(uint160(uint256(vm.load(proxy, ERC1967_ADMIN_SLOT))));
+        address proxyAdmin = address(uint160(uint256(vm.load(proxy, TestConstants.ERC1967_ADMIN_SLOT))));
         bytes memory data = abi.encodeCall(
             ProxyAdmin.upgradeAndCall, (ITransparentUpgradeableProxy(proxy), newImplementation, bytes(""))
         );
@@ -157,16 +144,16 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         TimelockController timelock = TimelockController(payable(created.timelock));
         uint256 delay = timelock.getMinDelay();
 
-        vm.prank(ADMIN);
+        vm.prank(TestConstants.ADMIN);
         timelock.schedule(target, 0, data, bytes32(0), salt, delay);
 
         vm.warp(block.timestamp + delay);
 
-        vm.prank(ADMIN);
+        vm.prank(TestConstants.ADMIN);
         timelock.execute(target, 0, data, bytes32(0), salt);
     }
 
     function _implementation(address proxy) internal view returns (address) {
-        return address(uint160(uint256(vm.load(proxy, ERC1967_IMPLEMENTATION_SLOT))));
+        return address(uint160(uint256(vm.load(proxy, TestConstants.ERC1967_IMPLEMENTATION_SLOT))));
     }
 }

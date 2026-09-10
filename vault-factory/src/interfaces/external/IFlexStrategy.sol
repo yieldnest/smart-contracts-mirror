@@ -22,6 +22,7 @@ interface IFlexStrategy {
 
     function setHasAllocator(bool hasAllocators_) external;
     function setAccountingModule(address accountingModule_) external;
+    function setHooks(address hooks_) external;
     function setProcessorRule(address target, bytes4 functionSig, IVault.FunctionRule calldata rule) external;
     function unpause() external;
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);

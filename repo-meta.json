@@ -35,8 +35,8 @@
     "vault-factory": {
       "url": "https://github.com/yieldnest/vault-factory.git",
       "branch": "feature/factory-v1",
-      "commit": "b83dc72f481e9b24e2f9a59f9018cb2907d673eb",
-      "commit_message": "Deploy the flex strategy system from the factory"
+      "commit": "e799d539631865199e0c5c958f4fa602fdf429e2",
+      "commit_message": "Fuzz flex off-ramp integration flow"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

@@ -43,6 +43,7 @@ contract DeployRegistry is Script {
         address proxyAdmin = _proxyAdmin(address(registry));
 
         console2.log("Registry implementation:", address(implementation));
+        console2.log("SafeGuard implementation:", RegistryImplementations.SAFE_GUARD_IMPLEMENTATION);
         console2.log("Registry proxy:", address(registry));
         console2.log("Registry proxy admin:", proxyAdmin);
         console2.log("Registry timelock:", address(timelock));
@@ -50,6 +51,7 @@ contract DeployRegistry is Script {
 
         string memory obj = "deployment";
         vm.serializeAddress(obj, "registryImplementation", address(implementation));
+        vm.serializeAddress(obj, "safeGuardImplementation", RegistryImplementations.SAFE_GUARD_IMPLEMENTATION);
         vm.serializeAddress(obj, "registryProxyAdmin", proxyAdmin);
         vm.serializeAddress(obj, "registryTimelock", address(timelock));
         string memory json = vm.serializeAddress(obj, "registry", address(registry));
@@ -65,7 +67,7 @@ contract DeployRegistry is Script {
     }
 
     function _keys() internal pure returns (bytes32[] memory keys) {
-        keys = new bytes32[](10);
+        keys = new bytes32[](12);
         keys[0] = RegistryKeys.VAULT;
         keys[1] = RegistryKeys.WRAPPED_TOKEN;
         keys[2] = RegistryKeys.WITHDRAWAL_REQUEST;
@@ -76,10 +78,12 @@ contract DeployRegistry is Script {
         keys[7] = RegistryKeys.ACCOUNTING_MODULE;
         keys[8] = RegistryKeys.ACCOUNTING_TOKEN_FACTORY;
         keys[9] = RegistryKeys.REWARDS_SWEEPER;
+        keys[10] = RegistryKeys.SAFE_GUARD;
+        keys[11] = RegistryKeys.HOOKS_DEPLOYER;
     }
 
     function _values() internal pure returns (address[] memory values) {
-        values = new address[](10);
+        values = new address[](12);
         values[0] = RegistryImplementations.VAULT_IMPLEMENTATION;
         values[1] = RegistryImplementations.WRAPPED_TOKEN_IMPLEMENTATION;
         values[2] = RegistryImplementations.WITHDRAWAL_REQUEST_IMPLEMENTATION;
@@ -90,5 +94,7 @@ contract DeployRegistry is Script {
         values[7] = RegistryImplementations.ACCOUNTING_MODULE_IMPLEMENTATION;
         values[8] = RegistryImplementations.ACCOUNTING_TOKEN_FACTORY_IMPLEMENTATION;
         values[9] = RegistryImplementations.REWARDS_SWEEPER_IMPLEMENTATION;
+        values[10] = RegistryImplementations.SAFE_GUARD_IMPLEMENTATION;
+        values[11] = RegistryImplementations.HOOKS_DEPLOYER;
     }
 }

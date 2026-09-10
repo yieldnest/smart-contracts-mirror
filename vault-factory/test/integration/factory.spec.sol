@@ -11,6 +11,7 @@ import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {VaultFactory} from "src/VaultFactory.sol";
 import {BaseAssetProvider} from "src/provider/BaseAssetProvider.sol";
 import {RegistryImplementations} from "script/RegistryImplementations.sol";
+import {TestConstants} from "test/lib/TestConstants.sol";
 
 interface IProxyAdminOwner {
     function owner() external view returns (address);
@@ -95,18 +96,6 @@ interface IRequestPolicyView {
 }
 
 contract VaultFactoryIntegrationTest is Test {
-    bytes32 private constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-
-    address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address private constant ADMIN = 0x0e46F77dbe0b6e9782bDe5596cdAb025C222cC5d;
-    address private constant PROCESSOR = 0x1000000000000000000000000000000000000001;
-    address private constant PAUSER = 0x1000000000000000000000000000000000000002;
-    address private constant UNPAUSER = 0x1000000000000000000000000000000000000003;
-    address private constant FEE_MANAGER = 0x1000000000000000000000000000000000000004;
-    address private constant RESOLVER = 0x1000000000000000000000000000000000000005;
-    address private constant BOOTSTRAP_RECEIVER = 0x1000000000000000000000000000000000000006;
-    address private constant CREATOR = 0x1000000000000000000000000000000000000007;
-
     uint256 private constant BOOTSTRAP_AMOUNT = 1e6;
     uint256 private constant BOOTSTRAP_SHARES = 1e18;
     uint256 private constant MIN_WITHDRAWAL_AMOUNT = 0.1 ether;
@@ -125,10 +114,10 @@ contract VaultFactoryIntegrationTest is Test {
         _populateRegistry();
         factory = new VaultFactory(registry);
 
-        deal(USDC, CREATOR, BOOTSTRAP_AMOUNT);
+        deal(TestConstants.USDC, TestConstants.CREATOR, BOOTSTRAP_AMOUNT);
 
-        vm.startPrank(CREATOR);
-        IERC20(USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
+        vm.startPrank(TestConstants.CREATOR);
+        IERC20(TestConstants.USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
         created = factory.createVault(_vaultParams(), _emptyFlexParams());
         vm.stopPrank();
     }
@@ -169,9 +158,9 @@ contract VaultFactoryIntegrationTest is Test {
         assertEq(vault.decimals(), 18, "vault decimals");
         assertEq(vault.VAULT_VERSION(), "0.4.2", "vault version");
         assertEq(vault.totalSupply(), BOOTSTRAP_SHARES, "total supply");
-        assertEq(vault.balanceOf(BOOTSTRAP_RECEIVER), BOOTSTRAP_SHARES, "bootstrap shares");
+        assertEq(vault.balanceOf(TestConstants.BOOTSTRAP_RECEIVER), BOOTSTRAP_SHARES, "bootstrap shares");
 
-        assertEq(vault.asset(), USDC, "default asset");
+        assertEq(vault.asset(), TestConstants.USDC, "default asset");
         assertEq(vault.totalAssets(), BOOTSTRAP_AMOUNT, "total assets");
         assertEq(vault.convertToShares(BOOTSTRAP_AMOUNT), BOOTSTRAP_SHARES, "convert to shares");
         assertEq(vault.convertToAssets(BOOTSTRAP_SHARES), BOOTSTRAP_AMOUNT, "convert to assets");
@@ -191,12 +180,12 @@ contract VaultFactoryIntegrationTest is Test {
         address[] memory assets = vault.getAssets();
         assertEq(assets.length, 2, "assets length");
         assertEq(assets[0], created.wrappedToken, "base asset wrapper");
-        assertEq(assets[1], USDC, "default asset");
+        assertEq(assets[1], TestConstants.USDC, "default asset");
     }
 
     function test_CreateVault_Wrapper_And_Provider_Set_Correctly() public view {
         IWrappedTokenView wrappedToken = IWrappedTokenView(created.wrappedToken);
-        assertEq(wrappedToken.asset(), USDC, "wrapped asset");
+        assertEq(wrappedToken.asset(), TestConstants.USDC, "wrapped asset");
         assertEq(wrappedToken.name(), "Wrapped USD Coin", "wrapped name");
         assertEq(wrappedToken.symbol(), "WUSDC", "wrapped symbol");
         assertEq(wrappedToken.decimals(), 18, "wrapped decimals");
@@ -204,9 +193,9 @@ contract VaultFactoryIntegrationTest is Test {
 
         BaseAssetProvider provider = BaseAssetProvider(created.provider);
         assertEq(provider.baseAsset(), created.wrappedToken, "provider base asset");
-        assertEq(provider.defaultAsset(), USDC, "provider default asset");
+        assertEq(provider.defaultAsset(), TestConstants.USDC, "provider default asset");
         assertEq(provider.getRate(created.wrappedToken), 1e18, "wrapper rate");
-        assertEq(provider.getRate(USDC), 1e18, "default asset rate");
+        assertEq(provider.getRate(TestConstants.USDC), 1e18, "default asset rate");
     }
 
     function test_CreateVault_Proxy_Admins_And_Roles_Set_Correctly() public view {
@@ -219,10 +208,10 @@ contract VaultFactoryIntegrationTest is Test {
         assertEq(_proxyAdminOwner(created.bagFactory), created.timelock, "bag factory proxy admin owner");
 
         assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), created.timelock), "vault admin");
-        assertTrue(vault.hasRole(vault.PROCESSOR_ROLE(), PROCESSOR), "processor");
-        assertTrue(vault.hasRole(vault.PAUSER_ROLE(), PAUSER), "pauser");
-        assertTrue(vault.hasRole(vault.UNPAUSER_ROLE(), UNPAUSER), "unpauser");
-        assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), FEE_MANAGER), "fee manager");
+        assertTrue(vault.hasRole(vault.PROCESSOR_ROLE(), TestConstants.PROCESSOR), "processor");
+        assertTrue(vault.hasRole(vault.PAUSER_ROLE(), TestConstants.PAUSER), "pauser");
+        assertTrue(vault.hasRole(vault.UNPAUSER_ROLE(), TestConstants.UNPAUSER), "unpauser");
+        assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), TestConstants.FEE_MANAGER), "fee manager");
         assertTrue(vault.hasRole(vault.PROVIDER_MANAGER_ROLE(), created.timelock), "provider manager");
         assertTrue(vault.hasRole(vault.BUFFER_MANAGER_ROLE(), created.timelock), "buffer manager");
         assertTrue(vault.hasRole(vault.ASSET_MANAGER_ROLE(), created.timelock), "asset manager");
@@ -245,9 +234,9 @@ contract VaultFactoryIntegrationTest is Test {
         assertEq(request.requestPolicy(), created.requestPolicy, "request policy");
         assertEq(request.maxDataLength(), MAX_DATA_LENGTH, "max data length");
         assertTrue(request.hasRole(request.DEFAULT_ADMIN_ROLE(), created.timelock), "request admin");
-        assertTrue(request.hasRole(request.RESOLVER_ROLE(), RESOLVER), "request resolver");
+        assertTrue(request.hasRole(request.RESOLVER_ROLE(), TestConstants.RESOLVER), "request resolver");
         assertTrue(request.hasRole(request.CONFIGURATION_MANAGER_ROLE(), created.timelock), "request config manager");
-        assertTrue(request.hasRole(request.PAUSER_ROLE(), PAUSER), "request pauser");
+        assertTrue(request.hasRole(request.PAUSER_ROLE(), TestConstants.PAUSER), "request pauser");
 
         assertEq(withdrawer.token(), created.vault, "withdrawer token");
         assertEq(withdrawer.withdrawalRequest(), created.withdrawalRequest, "withdrawer request");
@@ -267,7 +256,7 @@ contract VaultFactoryIntegrationTest is Test {
         flexParams.deployStrategy = true;
         flexParams.multisig = address(0x5AFE);
         flexParams.offRampAddress = address(0x0FF);
-        flexParams.accountingProcessor = PROCESSOR;
+        flexParams.accountingProcessor = TestConstants.PROCESSOR;
         flexParams.targetApy = 0.05e18;
         flexParams.lowerBound = 0.01e18;
         flexParams.minRewardableAssets = 100e6;
@@ -276,15 +265,13 @@ contract VaultFactoryIntegrationTest is Test {
         flexParams.accountingTokenName = "Flex Accounting";
         flexParams.accountingTokenSymbol = "aFLEX";
 
-        deal(USDC, CREATOR, BOOTSTRAP_AMOUNT);
+        deal(TestConstants.USDC, TestConstants.CREATOR, BOOTSTRAP_AMOUNT);
 
         // This registry populates only the core keys, so the flex path must fail closed on the
-        // first missing flex implementation.
-        vm.startPrank(CREATOR);
-        IERC20(USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
-        vm.expectRevert(
-            abi.encodeWithSelector(IVaultFactory.MissingRegistryValue.selector, RegistryKeys.FLEX_STRATEGY)
-        );
+        // first missing flex dependency.
+        vm.startPrank(TestConstants.CREATOR);
+        IERC20(TestConstants.USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(IVaultFactory.MissingRegistryValue.selector, RegistryKeys.SAFE_GUARD));
         factory.createVault(_vaultParams(), flexParams);
         vm.stopPrank();
     }
@@ -320,13 +307,13 @@ contract VaultFactoryIntegrationTest is Test {
 
     function _vaultParams() internal pure returns (IVaultFactory.VaultParams memory) {
         return IVaultFactory.VaultParams({
-            admin: ADMIN,
-            processor: PROCESSOR,
-            pauser: PAUSER,
-            unpauser: UNPAUSER,
-            feeManager: FEE_MANAGER,
-            resolver: RESOLVER,
-            baseAsset: USDC,
+            admin: TestConstants.ADMIN,
+            processor: TestConstants.PROCESSOR,
+            pauser: TestConstants.PAUSER,
+            unpauser: TestConstants.UNPAUSER,
+            feeManager: TestConstants.FEE_MANAGER,
+            resolver: TestConstants.RESOLVER,
+            baseAsset: TestConstants.USDC,
             tokenName: "Whitelabel USDC RWA",
             tokenSymbol: "WLRWA",
             countNativeAsset: false,
@@ -335,7 +322,7 @@ contract VaultFactoryIntegrationTest is Test {
             minWithdrawalAmount: MIN_WITHDRAWAL_AMOUNT,
             maxDataLength: MAX_DATA_LENGTH,
             bootstrapAmount: BOOTSTRAP_AMOUNT,
-            bootstrapReceiver: BOOTSTRAP_RECEIVER
+            bootstrapReceiver: TestConstants.BOOTSTRAP_RECEIVER
         });
     }
 
@@ -344,7 +331,7 @@ contract VaultFactoryIntegrationTest is Test {
     }
 
     function _proxyAdminOwner(address proxy) internal view returns (address) {
-        address proxyAdmin = address(uint160(uint256(vm.load(proxy, ERC1967_ADMIN_SLOT))));
+        address proxyAdmin = address(uint160(uint256(vm.load(proxy, TestConstants.ERC1967_ADMIN_SLOT))));
         return IProxyAdminOwner(proxyAdmin).owner();
     }
 }

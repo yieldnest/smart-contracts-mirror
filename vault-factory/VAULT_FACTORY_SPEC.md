@@ -62,6 +62,8 @@ Vault creators pass `baseAsset`. The factory derives both the ERC4626 Default As
 
 The Wrapped Token is deployed behind the same OpenZeppelin Transparent Upgradeable Proxy pattern as the Main Vault. Its `ProxyAdmin` is owned by the same deployment timelock used for the Main Vault, so wrapper upgrades follow the same upgradeability rules.
 
+The wrapper is added to the Main Vault as an **inactive** asset: it is an accounting-only denominator and must not be depositable into the vault. Only the ERC4626 Default Asset accepts deposits.
+
 
 
 ### Rate Provider
@@ -201,7 +203,7 @@ When `deployStrategy` is true, the factory deploys the full flex strategy system
 - **FlexStrategy** — the strategy vault. Its base asset is the vault's raw `baseAsset` (the Default Asset) with matching decimals. Initialized paused, unpaused only after configuration is complete.
 - **AccountingToken** — a per-asset implementation is created through the registered `AccountingTokenFactory` and proxied.
 - **AccountingModule** — wired to the strategy, the accounting token, and the custody `multisig`, with `targetApy`, `lowerBound`, `minRewardableAssets`, and a 1 hour rewards cooldown.
-- **RewardsSweeper** — wired to the accounting module and granted `REWARDS_PROCESSOR_ROLE` on it.
+- **RewardsSweeper** — optional, controlled by the `deployRewardsSweeper` flag. When deployed it is wired to the accounting module and granted `REWARDS_PROCESSOR_ROLE` on it; its implementation is only read from the registry when the flag is set.
 - **FixedRateProvider** — the strategy's rate provider, pricing the base asset and accounting token at par.
 
 Role assignment mirrors the Main Vault policy: every critical role (`DEFAULT_ADMIN_ROLE` and all manager roles, `SAFE_MANAGER_ROLE`) goes to the deployment timelock; `PROCESSOR_ROLE`, `PAUSER_ROLE`, and `UNPAUSER_ROLE` go to the vault's actor parameters; `REWARDS_PROCESSOR_ROLE` goes to `accountingProcessor`; `LOSS_PROCESSOR_ROLE` goes to the multisig. All temporary factory roles are renounced.
@@ -219,7 +221,7 @@ The Allocators contains the Main Vault and the factory contract that will make t
 
 Once that boostrap action is done, the role is renounced.
 
-The strategy's shares are added as the Main Vault's third asset and priced by the `FlexProvider`.
+The strategy's shares are added as the Main Vault's third asset and priced by the `FlexProvider`. The asset is added **inactive**: `active` gates vault-side deposits, and strategy shares must never be depositable into the Main Vault — they are an accounting-only asset.
 
 #### Flex strategy deposit rules
 
