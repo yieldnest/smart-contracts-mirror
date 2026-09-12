@@ -1,0 +1,17 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+optimizer = true
+optimizer_runs = 200
+# The yieldnest-vault-withdrawals submodule ships a remappings.txt whose global entries would
+# hijack our OpenZeppelin resolution to its own (older) vendored copy, so remappings are
+# maintained explicitly in remappings.txt instead of auto-detected.
+auto_detect_remappings = false
+# Deploy scripts write resulting addresses to deployments/<name>-<chainid>.json.
+fs_permissions = [{ access = "read-write", path = "deployments" }]
+
+[lint]
+ignore = ["lib/**"]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

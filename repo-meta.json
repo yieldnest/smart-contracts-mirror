@@ -32,6 +32,12 @@
       "commit": "a769b101286fb3af87079b7260afbc9d20f27486",
       "commit_message": "Add policy math and viewer unit tests"
     },
+    "vault-factory": {
+      "url": "https://github.com/yieldnest/vault-factory.git",
+      "branch": "feature/factory-v1",
+      "commit": "4f8427b2ad4234afcb7f87fcb1e67ff989dc06dd",
+      "commit_message": "Checkpoint vault creation across stages"
+    },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
       "branch": "release-candidate",
