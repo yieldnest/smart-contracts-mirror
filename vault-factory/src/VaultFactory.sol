@@ -38,7 +38,16 @@ contract VaultFactory is IVaultFactory {
         address wrappedToken;
     }
 
+    struct PendingDeployment {
+        address creator;
+        VaultParams vaultParams;
+        FlexStrategyParams flexParams;
+        CreatedVault created;
+        Assets assets;
+    }
+
     IRegistry public immutable REGISTRY;
+    mapping(bytes32 deploymentId => PendingDeployment) private pendingDeployments;
 
     /// CONSTRUCTOR ///
 
@@ -53,6 +62,25 @@ contract VaultFactory is IVaultFactory {
         external
         returns (CreatedVault memory created)
     {
+        (bytes32 deploymentId,) = _startCreateVault(msg.sender, params, flexParams);
+        created = _resumeCreateVault(deploymentId, msg.sender);
+    }
+
+    function startCreateVault(VaultParams calldata params, FlexStrategyParams calldata flexParams)
+        external
+        returns (bytes32 deploymentId, CreatedVault memory created)
+    {
+        return _startCreateVault(msg.sender, params, flexParams);
+    }
+
+    function resumeCreateVault(bytes32 deploymentId) external returns (CreatedVault memory created) {
+        return _resumeCreateVault(deploymentId, msg.sender);
+    }
+
+    function _startCreateVault(address creator, VaultParams calldata params, FlexStrategyParams calldata flexParams)
+        internal
+        returns (bytes32 deploymentId, CreatedVault memory created)
+    {
         _validateVaultParams(params);
         if (flexParams.deployStrategy) {
             _validateFlexParams(flexParams);
@@ -65,8 +93,10 @@ contract VaultFactory is IVaultFactory {
         created.timelock = address(timelock);
         created.wrappedToken = assets.wrappedToken;
         created.vault = address(new UninitializedTransparentUpgradeableProxy(vaultLogic, address(timelock)));
-
-        if (flexParams.deployStrategy) {
+        if (!flexParams.deployStrategy) {
+            created.provider =
+                address(new BaseAssetProvider(assets.effectiveBaseAsset, assets.defaultAsset, PROVIDER_RATE));
+        } else {
             created.safeGuard = SafeGuardDeployer.deploy(
                 SafeGuardDeployer.Config({
                     safeGuardLogic: _registryValue(RegistryKeys.SAFE_GUARD),
@@ -76,24 +106,44 @@ contract VaultFactory is IVaultFactory {
                     strategyName: flexParams.strategyName
                 })
             );
-            FlexStrategyDeployer.FlexSystem memory flex =
-                FlexStrategyDeployer.deploy(_flexConfig(created.vault, address(timelock), params, flexParams, assets));
-            created.flexStrategy = flex.strategy;
-            created.accountingToken = flex.accountingToken;
-            created.accountingModule = flex.accountingModule;
-            created.accountingModuleHook = flex.accountingModuleHook;
-            created.rewardsSweeper = flex.rewardsSweeper;
-            created.provider = flex.vaultProvider;
-        } else {
-            created.provider =
-                address(new BaseAssetProvider(assets.effectiveBaseAsset, assets.defaultAsset, PROVIDER_RATE));
         }
 
         IVault vault = IVault(created.vault);
         _initializeVault(vault, params, assets);
         _configureVault(vault, assets, params, created.provider, address(timelock));
 
+        deploymentId = keccak256(abi.encode(block.chainid, address(this), creator, created.vault));
+        PendingDeployment storage pending = pendingDeployments[deploymentId];
+        pending.creator = creator;
+        pending.vaultParams = params;
+        pending.flexParams = flexParams;
+        pending.created = created;
+        pending.assets = assets;
+
+        emit VaultCreationStarted(creator, deploymentId, created.vault, created);
+    }
+
+    function _resumeCreateVault(bytes32 deploymentId, address caller) internal returns (CreatedVault memory created) {
+        PendingDeployment storage pending = pendingDeployments[deploymentId];
+        if (pending.creator == address(0)) revert UnknownDeployment(deploymentId);
+        if (pending.creator != caller) revert Unauthorized();
+
+        VaultParams memory params = pending.vaultParams;
+        FlexStrategyParams memory flexParams = pending.flexParams;
+        Assets memory assets = pending.assets;
+        created = pending.created;
+
+        IVault vault = IVault(created.vault);
         if (flexParams.deployStrategy) {
+            FlexStrategyDeployer.FlexSystem memory flex =
+                FlexStrategyDeployer.deploy(_flexConfig(created.vault, created.timelock, params, flexParams, assets));
+            created.flexStrategy = flex.strategy;
+            created.accountingToken = flex.accountingToken;
+            created.accountingModule = flex.accountingModule;
+            created.accountingModuleHook = flex.accountingModuleHook;
+            created.rewardsSweeper = flex.rewardsSweeper;
+            created.provider = flex.vaultProvider;
+            vault.setProvider(created.provider);
             // The strategy's shares are an accounting-only vault asset, priced by the
             // FlexProvider at the strategy's live redemption rate. active MUST be false: it
             // gates vault-side deposits of the asset, and strategy shares must never be
@@ -105,7 +155,7 @@ contract VaultFactory is IVaultFactory {
 
         WithdrawalSystem memory withdrawals = deployWithdrawalSystem(
             created.vault,
-            address(timelock),
+            created.timelock,
             params.resolver,
             params.pauser,
             params.minWithdrawalAmount,
@@ -121,9 +171,21 @@ contract VaultFactory is IVaultFactory {
         if (flexParams.deployStrategy) {
             _bootstrapStrategy(created.flexStrategy, created.vault, params);
         }
+
+        // Refresh cached accounting after direct bootstrap mints. The main vault prices strategy
+        // shares through the strategy, so refresh the strategy first when it uses cached totals.
+        if (flexParams.deployStrategy && !flexParams.alwaysComputeTotalAssets) {
+            IFlexStrategy(created.flexStrategy).processAccounting();
+        }
+        if (!params.alwaysComputeTotalAssets) {
+            vault.processAccounting();
+        }
+
         _renounceTemporaryRoles(vault);
 
-        emit VaultCreated(msg.sender, created.vault, created.timelock, created);
+        delete pendingDeployments[deploymentId];
+
+        emit VaultCreated(caller, created.vault, created.timelock, created);
     }
 
     function _validateVaultParams(VaultParams calldata params) internal view {
@@ -152,7 +214,7 @@ contract VaultFactory is IVaultFactory {
         }
     }
 
-    function _prepareAssets(VaultParams calldata params, address timelock) internal returns (Assets memory assets) {
+    function _prepareAssets(VaultParams memory params, address timelock) internal returns (Assets memory assets) {
         uint8 baseAssetDecimals = IERC20Metadata(params.baseAsset).decimals();
         assets.defaultAsset = params.baseAsset;
 
@@ -183,7 +245,7 @@ contract VaultFactory is IVaultFactory {
             );
     }
 
-    function _initializeVault(IVault vault, VaultParams calldata params, Assets memory assets) internal {
+    function _initializeVault(IVault vault, VaultParams memory params, Assets memory assets) internal {
         vault.initialize(
             address(this),
             params.tokenName,
@@ -199,7 +261,7 @@ contract VaultFactory is IVaultFactory {
     function _configureVault(
         IVault vault,
         Assets memory assets,
-        VaultParams calldata params,
+        VaultParams memory params,
         address provider,
         address timelock
     ) internal {
@@ -231,11 +293,13 @@ contract VaultFactory is IVaultFactory {
         if (assets.defaultAssetIndex == 1) {
             vault.addAsset(assets.defaultAsset, true);
         }
-        vault.setProvider(provider);
+        if (provider != address(0)) {
+            vault.setProvider(provider);
+        }
         vault.setBuffer(address(0));
     }
 
-    function _bootstrap(IVault vault, VaultParams calldata params) internal {
+    function _bootstrap(IVault vault, VaultParams memory params) internal {
         IERC20 asset = IERC20(params.baseAsset);
         uint8 baseAssetDecimals = IERC20Metadata(params.baseAsset).decimals();
         uint256 expectedShares = params.bootstrapAmount * 10 ** (VAULT_DECIMALS - baseAssetDecimals);
@@ -280,8 +344,8 @@ contract VaultFactory is IVaultFactory {
     function _flexConfig(
         address vault,
         address timelock,
-        VaultParams calldata params,
-        FlexStrategyParams calldata flexParams,
+        VaultParams memory params,
+        FlexStrategyParams memory flexParams,
         Assets memory assets
     ) internal view returns (FlexStrategyDeployer.Config memory cfg) {
         cfg.vault = vault;
@@ -289,7 +353,7 @@ contract VaultFactory is IVaultFactory {
         cfg.timelock = timelock;
         cfg.baseAsset = params.baseAsset;
         cfg.baseAssetDecimals = IERC20Metadata(params.baseAsset).decimals();
-        cfg.alwaysComputeTotalAssets = params.alwaysComputeTotalAssets;
+        cfg.alwaysComputeTotalAssets = flexParams.alwaysComputeTotalAssets;
         cfg.deployRewardsSweeper = flexParams.deployRewardsSweeper;
         cfg.processor = params.processor;
         cfg.pauser = params.pauser;
@@ -315,7 +379,7 @@ contract VaultFactory is IVaultFactory {
     /// @dev Deposits one bootstrap amount of the base asset into the strategy with the vault as
     /// the receiver of the strategy shares, then renounces the factory's ALLOCATOR_ROLE. Runs
     /// after the vault bootstrap so the strategy shares cannot dilute the vault's first mint.
-    function _bootstrapStrategy(address strategy, address vault, VaultParams calldata params) internal {
+    function _bootstrapStrategy(address strategy, address vault, VaultParams memory params) internal {
         IERC20 asset = IERC20(params.baseAsset);
 
         asset.safeTransferFrom(msg.sender, address(this), params.bootstrapAmount);

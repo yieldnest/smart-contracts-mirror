@@ -9,6 +9,7 @@ import {IVaultFactory} from "src/interfaces/IVaultFactory.sol";
 import {Registry} from "src/Registry.sol";
 import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {VaultFactory} from "src/VaultFactory.sol";
+import {VaultVerifier} from "src/VaultVerifier.sol";
 import {BaseAssetProvider} from "src/provider/BaseAssetProvider.sol";
 import {RegistryImplementations} from "script/RegistryImplementations.sol";
 import {TestConstants} from "test/lib/TestConstants.sol";
@@ -148,6 +149,22 @@ contract VaultFactoryIntegrationTest is Test {
             "bag factory impl"
         );
         assertEq(registry.valueOf(RegistryKeys.BAG), RegistryImplementations.BAG_IMPLEMENTATION, "bag impl");
+    }
+
+    function test_Verifier_Accepts_Factory_Created_Vault() public {
+        VaultVerifier verifier = new VaultVerifier();
+        assertTrue(
+            verifier.verify(
+                created.vault,
+                VaultVerifier.Verification({
+                    factory: address(factory),
+                    created: created,
+                    vaultParams: _vaultParams(),
+                    flexParams: _emptyFlexParams()
+                })
+            ),
+            "verification"
+        );
     }
 
     function test_CreateVault_ERC20_And_ERC4626_View_Functions() public view {

@@ -50,5 +50,6 @@ interface IVault {
     function setBuffer(address buffer) external;
     function unpause() external;
     function setProcessorRule(address target, bytes4 functionSig, FunctionRule calldata rule) external;
+    function processAccounting() external;
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 }

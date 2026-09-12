@@ -24,6 +24,7 @@ interface IVaultFactory {
     struct FlexStrategyParams {
         bool deployStrategy;
         bool deployRewardsSweeper;
+        bool alwaysComputeTotalAssets;
         address multisig;
         address offRampAddress;
         address accountingProcessor;
@@ -61,6 +62,9 @@ interface IVaultFactory {
     }
 
     event VaultCreated(address indexed creator, address indexed vault, address indexed timelock, CreatedVault created);
+    event VaultCreationStarted(
+        address indexed creator, bytes32 indexed deploymentId, address indexed vault, CreatedVault created
+    );
     event WithdrawalSystemDeployed(address indexed vault, address indexed timelock, WithdrawalSystem withdrawalSystem);
     event NonceAdvanced(address indexed caller, address marker);
 
@@ -68,11 +72,19 @@ interface IVaultFactory {
     error BootstrapSharesMismatch(uint256 actualShares, uint256 expectedShares);
     error BootstrapAmountTooLow(uint256 amount, uint256 minimum);
     error MissingRegistryValue(bytes32 key);
+    error UnknownDeployment(bytes32 deploymentId);
+    error Unauthorized();
     error ZeroAddress();
 
     function createVault(VaultParams calldata params, FlexStrategyParams calldata flexParams)
         external
         returns (CreatedVault memory created);
+
+    function startCreateVault(VaultParams calldata params, FlexStrategyParams calldata flexParams)
+        external
+        returns (bytes32 deploymentId, CreatedVault memory created);
+
+    function resumeCreateVault(bytes32 deploymentId) external returns (CreatedVault memory created);
 
     function deployWithdrawalSystem(
         address vault,

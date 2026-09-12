@@ -9,6 +9,7 @@ import {IVaultFactory} from "src/interfaces/IVaultFactory.sol";
 import {Registry} from "src/Registry.sol";
 import {RegistryKeys} from "src/lib/RegistryKeys.sol";
 import {VaultFactory} from "src/VaultFactory.sol";
+import {VaultVerifier} from "src/VaultVerifier.sol";
 import {RegistryImplementations} from "script/RegistryImplementations.sol";
 import {SafeTestLib} from "test/lib/SafeTestLib.sol";
 import {TestConstants} from "test/lib/TestConstants.sol";
@@ -123,6 +124,22 @@ contract VaultFactoryFlexFlowIntegrationTest is Test {
         assertEq(IERC20(TestConstants.USDC).balanceOf(address(safe)), safeBalanceAfterBootstrap, "safe debited");
     }
 
+    function test_Verifier_Accepts_Factory_Created_Flex_Vault() public {
+        VaultVerifier verifier = new VaultVerifier();
+        assertTrue(
+            verifier.verify(
+                created.vault,
+                VaultVerifier.Verification({
+                    factory: address(factory),
+                    created: created,
+                    vaultParams: _vaultParams(),
+                    flexParams: _flexParams(address(safe))
+                })
+            ),
+            "verification"
+        );
+    }
+
     function _moveVaultAssetsToFlexStrategy(uint256 amount) internal {
         address[] memory targets = new address[](2);
         targets[0] = TestConstants.USDC;
@@ -203,6 +220,7 @@ contract VaultFactoryFlexFlowIntegrationTest is Test {
         return IVaultFactory.FlexStrategyParams({
             deployStrategy: true,
             deployRewardsSweeper: true,
+            alwaysComputeTotalAssets: true,
             multisig: multisig,
             offRampAddress: TestConstants.OFF_RAMP,
             accountingProcessor: TestConstants.PROCESSOR,

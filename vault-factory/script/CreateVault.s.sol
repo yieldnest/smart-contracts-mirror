@@ -14,12 +14,16 @@ contract CreateVault is Script {
 
     /// @notice Ethereum mainnet USDC, used as both base and default asset.
     address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address internal constant OFF_RAMP = 0x0e46F77dbe0b6e9782bDe5596cdAb025C222cC5d;
 
     uint256 internal constant TIMELOCK_DURATION = 30 seconds;
     // 0.1 USDC expressed in 18-decimal vault shares, the unit the request policy locks.
     uint256 internal constant MIN_WITHDRAWAL_AMOUNT = 0.1 ether;
     uint256 internal constant MAX_DATA_LENGTH = 256;
     uint256 internal constant BOOTSTRAP_AMOUNT = 1e6; // 1 USDC
+    uint256 internal constant TARGET_APY = 0.05e18;
+    uint256 internal constant LOWER_BOUND = 0.01e18;
+    uint256 internal constant MIN_REWARDABLE_ASSETS = 100e6;
 
     function run() external returns (IVaultFactory.CreatedVault memory created) {
         address factory = vm.promptAddress("VaultFactory address");
@@ -43,14 +47,31 @@ contract CreateVault is Script {
             bootstrapReceiver: CONTROLLER
         });
 
-        // No flex strategy for this deployment; all other fields stay zeroed.
-        IVaultFactory.FlexStrategyParams memory flexParams;
+        IVaultFactory.FlexStrategyParams memory flexParams = IVaultFactory.FlexStrategyParams({
+            deployStrategy: true,
+            deployRewardsSweeper: true,
+            alwaysComputeTotalAssets: true,
+            multisig: CONTROLLER,
+            offRampAddress: OFF_RAMP,
+            accountingProcessor: CONTROLLER,
+            targetApy: TARGET_APY,
+            lowerBound: LOWER_BOUND,
+            minRewardableAssets: MIN_REWARDABLE_ASSETS,
+            strategyName: "Whitelabel USDC Flex Strategy",
+            strategySymbol: "WLFUSDC-FLEX",
+            accountingTokenName: "Whitelabel USDC Flex Accounting",
+            accountingTokenSymbol: "aWLFUSDC"
+        });
 
         vm.startBroadcast();
-        IERC20(USDC).approve(factory, BOOTSTRAP_AMOUNT);
-        created = IVaultFactory(factory).createVault(params, flexParams);
+        (bytes32 deploymentId, IVaultFactory.CreatedVault memory started) =
+            IVaultFactory(factory).startCreateVault(params, flexParams);
+        IERC20(USDC).approve(factory, BOOTSTRAP_AMOUNT * 2);
+        created = IVaultFactory(factory).resumeCreateVault(deploymentId);
         vm.stopBroadcast();
 
+        console2.logBytes32(deploymentId);
+        console2.log("Started vault:", started.vault);
         console2.log("Vault:", created.vault);
         console2.log("Timelock:", created.timelock);
         console2.log("Wrapped token:", created.wrappedToken);
@@ -59,8 +80,15 @@ contract CreateVault is Script {
         console2.log("Withdrawer:", created.withdrawer);
         console2.log("Bag factory:", created.bagFactory);
         console2.log("Request policy:", created.requestPolicy);
+        console2.log("SafeGuard:", created.safeGuard);
+        console2.log("Accounting module hook:", created.accountingModuleHook);
+        console2.log("Flex strategy:", created.flexStrategy);
+        console2.log("Accounting token:", created.accountingToken);
+        console2.log("Accounting module:", created.accountingModule);
+        console2.log("Rewards sweeper:", created.rewardsSweeper);
 
         string memory obj = "deployment";
+        vm.serializeBytes32(obj, "deploymentId", deploymentId);
         vm.serializeAddress(obj, "vault", created.vault);
         vm.serializeAddress(obj, "vaultProxyAdmin", _proxyAdmin(created.vault));
         vm.serializeAddress(obj, "timelock", created.timelock);
@@ -74,6 +102,17 @@ contract CreateVault is Script {
         vm.serializeAddress(obj, "bagFactory", created.bagFactory);
         vm.serializeAddress(obj, "bagFactoryProxyAdmin", _proxyAdmin(created.bagFactory));
         vm.serializeAddress(obj, "withdrawalRequestViewer", RegistryImplementations.WITHDRAWAL_REQUEST_VIEWER);
+        vm.serializeAddress(obj, "safeGuard", created.safeGuard);
+        vm.serializeAddress(obj, "safeGuardProxyAdmin", _proxyAdmin(created.safeGuard));
+        vm.serializeAddress(obj, "accountingModuleHook", created.accountingModuleHook);
+        vm.serializeAddress(obj, "flexStrategy", created.flexStrategy);
+        vm.serializeAddress(obj, "flexStrategyProxyAdmin", _proxyAdmin(created.flexStrategy));
+        vm.serializeAddress(obj, "accountingToken", created.accountingToken);
+        vm.serializeAddress(obj, "accountingTokenProxyAdmin", _proxyAdmin(created.accountingToken));
+        vm.serializeAddress(obj, "accountingModule", created.accountingModule);
+        vm.serializeAddress(obj, "accountingModuleProxyAdmin", _proxyAdmin(created.accountingModule));
+        vm.serializeAddress(obj, "rewardsSweeper", created.rewardsSweeper);
+        vm.serializeAddress(obj, "rewardsSweeperProxyAdmin", _proxyAdmin(created.rewardsSweeper));
         string memory json = vm.serializeAddress(obj, "requestPolicy", created.requestPolicy);
 
         vm.createDir("deployments", true);

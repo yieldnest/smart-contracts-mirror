@@ -35,8 +35,8 @@
     "vault-factory": {
       "url": "https://github.com/yieldnest/vault-factory.git",
       "branch": "feature/factory-v1",
-      "commit": "e799d539631865199e0c5c958f4fa602fdf429e2",
-      "commit_message": "Fuzz flex off-ramp integration flow"
+      "commit": "4f8427b2ad4234afcb7f87fcb1e67ff989dc06dd",
+      "commit_message": "Checkpoint vault creation across stages"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

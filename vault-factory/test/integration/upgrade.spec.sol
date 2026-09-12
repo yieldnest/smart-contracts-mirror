@@ -38,11 +38,11 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         _populateRegistry();
         factory = new VaultFactory(registry);
 
-        deal(TestConstants.USDC, TestConstants.CREATOR, BOOTSTRAP_AMOUNT);
+        deal(TestConstants.USDC, TestConstants.CREATOR, BOOTSTRAP_AMOUNT * 2);
 
         vm.startPrank(TestConstants.CREATOR);
-        IERC20(TestConstants.USDC).approve(address(factory), BOOTSTRAP_AMOUNT);
-        created = factory.createVault(_vaultParams(), _emptyFlexParams());
+        IERC20(TestConstants.USDC).approve(address(factory), BOOTSTRAP_AMOUNT * 2);
+        created = factory.createVault(_vaultParams(), _flexParams());
         vm.stopPrank();
     }
 
@@ -53,6 +53,11 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         address withdrawerImplementation = address(new UpgradeTarget());
         address bagFactoryImplementation = address(new UpgradeTarget());
         address bagImplementation = address(new UpgradeTarget());
+        address safeGuardImplementation = address(new UpgradeTarget());
+        address flexStrategyImplementation = address(new UpgradeTarget());
+        address accountingTokenImplementation = address(new UpgradeTarget());
+        address accountingModuleImplementation = address(new UpgradeTarget());
+        address rewardsSweeperImplementation = address(new UpgradeTarget());
 
         _timelockUpgradeProxy(created.vault, vaultImplementation, "vault");
         _timelockUpgradeProxy(created.wrappedToken, wrappedTokenImplementation, "wrapped token");
@@ -60,6 +65,20 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         _timelockUpgradeProxy(created.withdrawer, withdrawerImplementation, "withdrawer");
         _timelockUpgradeBagImplementation(bagImplementation);
         _timelockUpgradeProxy(created.bagFactory, bagFactoryImplementation, "bag factory");
+        _timelockUpgradeProxy(created.safeGuard, safeGuardImplementation, "safeguard");
+        _timelockUpgradeProxy(created.flexStrategy, flexStrategyImplementation, "flex strategy");
+        _timelockUpgradeProxy(created.accountingToken, accountingTokenImplementation, "accounting token");
+        _timelockUpgradeProxy(created.accountingModule, accountingModuleImplementation, "accounting module");
+        _timelockUpgradeProxy(created.rewardsSweeper, rewardsSweeperImplementation, "rewards sweeper");
+    }
+
+    function test_CreateVault_NonUpgradeable_Flex_Helper_Contracts_Are_Deployed() public view {
+        assertGt(created.accountingModuleHook.code.length, 0, "accounting module hook code");
+        assertEq(_implementation(created.accountingModuleHook), address(0), "hook is not erc1967 proxy");
+
+        address hooksDeployer = registry.valueOf(RegistryKeys.HOOKS_DEPLOYER);
+        assertGt(hooksDeployer.code.length, 0, "hooks deployer code");
+        assertEq(_implementation(hooksDeployer), address(0), "hooks deployer is not erc1967 proxy");
     }
 
     function _deployRegistry() internal returns (IRegistry) {
@@ -72,21 +91,33 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
     }
 
     function _populateRegistry() internal {
-        bytes32[] memory keys = new bytes32[](6);
+        bytes32[] memory keys = new bytes32[](12);
         keys[0] = RegistryKeys.VAULT;
         keys[1] = RegistryKeys.WRAPPED_TOKEN;
         keys[2] = RegistryKeys.WITHDRAWAL_REQUEST;
         keys[3] = RegistryKeys.WITHDRAWER;
         keys[4] = RegistryKeys.BAG_FACTORY;
         keys[5] = RegistryKeys.BAG;
+        keys[6] = RegistryKeys.FLEX_STRATEGY;
+        keys[7] = RegistryKeys.ACCOUNTING_MODULE;
+        keys[8] = RegistryKeys.ACCOUNTING_TOKEN_FACTORY;
+        keys[9] = RegistryKeys.REWARDS_SWEEPER;
+        keys[10] = RegistryKeys.SAFE_GUARD;
+        keys[11] = RegistryKeys.HOOKS_DEPLOYER;
 
-        address[] memory values = new address[](6);
+        address[] memory values = new address[](12);
         values[0] = RegistryImplementations.VAULT_IMPLEMENTATION;
         values[1] = RegistryImplementations.WRAPPED_TOKEN_IMPLEMENTATION;
         values[2] = RegistryImplementations.WITHDRAWAL_REQUEST_IMPLEMENTATION;
         values[3] = RegistryImplementations.WITHDRAWER_IMPLEMENTATION;
         values[4] = RegistryImplementations.BAG_FACTORY_IMPLEMENTATION;
         values[5] = RegistryImplementations.BAG_IMPLEMENTATION;
+        values[6] = RegistryImplementations.FLEX_STRATEGY_IMPLEMENTATION;
+        values[7] = RegistryImplementations.ACCOUNTING_MODULE_IMPLEMENTATION;
+        values[8] = RegistryImplementations.ACCOUNTING_TOKEN_FACTORY_IMPLEMENTATION;
+        values[9] = RegistryImplementations.REWARDS_SWEEPER_IMPLEMENTATION;
+        values[10] = RegistryImplementations.SAFE_GUARD_IMPLEMENTATION;
+        values[11] = RegistryImplementations.HOOKS_DEPLOYER;
 
         registry.setValues(keys, values);
     }
@@ -112,8 +143,22 @@ contract VaultFactoryUpgradeabilityIntegrationTest is Test {
         });
     }
 
-    function _emptyFlexParams() internal pure returns (IVaultFactory.FlexStrategyParams memory flexParams) {
-        flexParams.deployStrategy = false;
+    function _flexParams() internal pure returns (IVaultFactory.FlexStrategyParams memory) {
+        return IVaultFactory.FlexStrategyParams({
+            deployStrategy: true,
+            deployRewardsSweeper: true,
+            alwaysComputeTotalAssets: true,
+            multisig: TestConstants.SAFE_OWNER,
+            offRampAddress: TestConstants.OFF_RAMP,
+            accountingProcessor: TestConstants.PROCESSOR,
+            targetApy: 0.05e18,
+            lowerBound: 0.01e18,
+            minRewardableAssets: 100e6,
+            strategyName: "Flex Strategy",
+            strategySymbol: "FLEX",
+            accountingTokenName: "Flex Accounting",
+            accountingTokenSymbol: "aFLEX"
+        });
     }
 
     function _timelockUpgradeProxy(address proxy, address newImplementation, string memory label) internal {
