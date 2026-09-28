@@ -28,9 +28,9 @@
     },
     "yieldnest-vault-withdrawals": {
       "url": "https://github.com/yieldnest/yieldnest-vault-withdrawals.git",
-      "branch": "fix/comment",
-      "commit": "ac10eb5d7ae7b6cda74232094bc0ca2de6091782",
-      "commit_message": "Add withdrawal request interface"
+      "branch": "fix/star-style-comments",
+      "commit": "c2fdd0a14924ee4e64bdae538926b0b4a30dfe96",
+      "commit_message": "Align NatSpec style"
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",

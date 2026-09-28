@@ -21,13 +21,17 @@ contract DeployWithdrawalRequestImplementations is BaseScript {
     BeaconProxyFactory public bagFactoryImplementation;
     Bag public bagImplementation;
 
-    /// @notice Returns the deployment symbol used for labels and output JSON.
-    /// @return Script deployment symbol.
+    /**
+     * @notice Returns the deployment symbol used for labels and output JSON.
+     * @return Script deployment symbol.
+     */
     function symbol() public pure override returns (string memory) {
         return "withdrawalRequestImplementations";
     }
 
-    /// @notice Deploys the withdrawal request implementation contracts and writes deployment metadata.
+    /**
+     * @notice Deploys the withdrawal request implementation contracts and writes deployment metadata.
+     */
     function run() public {
         vm.startBroadcast();
 
@@ -45,7 +49,9 @@ contract DeployWithdrawalRequestImplementations is BaseScript {
         vm.stopBroadcast();
     }
 
-    /// @notice Verifies the implementation deployments.
+    /**
+     * @notice Verifies the implementation deployments.
+     */
     function _verifySetup() public view {
         if (address(withdrawalRequestImplementation).code.length == 0) revert InvalidSetup();
         if (address(requestWithdrawerImplementation).code.length == 0) revert InvalidSetup();
@@ -53,8 +59,10 @@ contract DeployWithdrawalRequestImplementations is BaseScript {
         if (address(bagImplementation).code.length == 0) revert InvalidSetup();
     }
 
-    /// @notice Returns the output JSON path for this deployment.
-    /// @return Deployment file path.
+    /**
+     * @notice Returns the output JSON path for this deployment.
+     * @return Deployment file path.
+     */
     function deploymentFilePath() public view returns (string memory) {
         return _deploymentFilePath();
     }
