@@ -4,9 +4,9 @@
   "repos": {
     "yieldnest-vault": {
       "url": "https://github.com/yieldnest/yieldnest-vault.git",
-      "branch": "eth-max-vault-release-candidate",
-      "commit": "89854dfedeb15ed06cebceee8935ba3494786274",
-      "commit_message": "Merge pull request #262 from yieldnest/fix/minor-updates"
+      "branch": "feature/vault-0.4.3",
+      "commit": "a54174f8003e284364843a953ccaebea61831641",
+      "commit_message": "Consolidate vault conversion dispatch"
     },
     "yieldnest-flex-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-flex-strategy.git",
