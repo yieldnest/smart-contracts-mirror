@@ -1,0 +1,20 @@
+{
+  "lib/forge-std": {
+    "rev": "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b"
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "rev": "fffcb3c8ec0ad1ee559976f0b1709ae2fdc60702"
+  },
+  "lib/yieldnest-vault": {
+    "branch": {
+      "name": "rwa-max-vault",
+      "rev": "9963297d9a986963a79a196339390428f947264d"
+    }
+  },
+  "lib/yieldnest-vault-withdrawals": {
+    "branch": {
+      "name": "main",
+      "rev": "bbb5ab238f2d458d235f11541bf8c34a53af6494"
+    }
+  }
+}
