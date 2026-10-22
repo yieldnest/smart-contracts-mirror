@@ -34,9 +34,9 @@
     },
     "yieldnest-eigenlayer-lrt": {
       "url": "https://github.com/yieldnest/yieldnest-eigenlayer-lrt.git",
-      "branch": "release-candidate",
-      "commit": "31f7719e0a65f3ad1aef4e7703ab06166f23b51d",
-      "commit_message": "Merge pull request #270 from yieldnest/script/cap-delegation"
+      "branch": "feature/ynETH-ETH-to-redemption-vault",
+      "commit": "e99fc9887a5f7586cbb614bb3411394fc78bb68d",
+      "commit_message": "Isolate redemption funding unit fixtures from fork balances"
     },
     "yieldnest-airdrop": {
       "url": "https://github.com/yieldnest/yieldnest-airdrop.git",
