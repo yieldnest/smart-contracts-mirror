@@ -14,6 +14,9 @@ import { IFlexStrategy } from "../FlexStrategy.sol";
 contract AccountingModuleHook is IHooks {
     error NotSupported();
 
+    /// @notice The version of the accounting module hook contract.
+    string public constant VERSION = "0.2.0";
+
     /// @notice The vault contract that this hooks contract is attached to
     IVault public immutable VAULT;
 
@@ -23,7 +26,7 @@ contract AccountingModuleHook is IHooks {
      * @notice Constructor
      * @param vault_ The address of the Vault to which this hooks contract is attached
      */
-    constructor(address vault_, IAccountingModule, address flexStrategy_) {
+    constructor(address vault_, address flexStrategy_) {
         VAULT = IVault(payable(vault_));
         flexStrategy = IVault(payable(flexStrategy_));
     }
