@@ -61,6 +61,12 @@
       "branch": "feature/state-relay-b1",
       "commit": "3616d3639de5b5df5b985ce9e69658703cc4401a",
       "commit_message": "apply fmt"
+    },
+    "rail-vault": {
+      "url": "https://github.com/yieldnest/rail-vault.git",
+      "branch": "feature/rail-vault-v1",
+      "commit": "26ed12d1e91449cbcc5fd00f809d02b4a97f44dd",
+      "commit_message": "test: broaden atomic entry and exit extraction scenarios"
     }
   }
 }
