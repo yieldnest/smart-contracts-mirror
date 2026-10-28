@@ -37,6 +37,7 @@ interface IAccountingModule {
     error TvlTooLow();
     error CurrentTimestampBeforePreviousTimestamp();
     error SnapshotIndexOutOfBounds(uint256 index);
+    error PricePerShareBelowSnapshot(uint256 currentPricePerShare, uint256 snapshotPricePerShare);
 
     function deposit(uint256 amount) external;
     function withdraw(uint256 amount, address recipient) external;
@@ -96,6 +97,9 @@ struct AccountingModuleStorage {
  */
 contract AccountingModule is IAccountingModule, Initializable, AccessControlUpgradeable {
     using SafeERC20 for IERC20;
+
+    /// @notice The version of the accounting module contract.
+    string public constant VERSION = "0.2.0";
 
     /// @notice Role for safe manager permissions
     bytes32 public constant SAFE_MANAGER_ROLE = keccak256("SAFE_MANAGER_ROLE");
@@ -350,6 +354,10 @@ contract AccountingModule is IAccountingModule, Initializable, AccessControlUpgr
 
         // Prevent division by zero
         if (previousPricePerShare == 0) revert InvariantViolation();
+
+        if (currentPricePerShare < previousPricePerShare) {
+            revert PricePerShareBelowSnapshot(currentPricePerShare, previousPricePerShare);
+        }
 
         return (currentPricePerShare - previousPricePerShare) * YEAR * DIVISOR / previousPricePerShare
             / (currentTimestamp - previousTimestamp);

@@ -68,11 +68,7 @@ contract AccountingModuleHookTest is Test {
         accountingToken.setAccountingModule(address(accountingModule));
 
         // Deploy the AccountingModuleHook
-        accountingModuleHook = new AccountingModuleHook(
-            address(mockStrategy), // vault_ (mocked as this contract)
-            IAccountingModule(address(accountingModule)),
-            address(mockStrategy)
-        );
+        accountingModuleHook = new AccountingModuleHook(address(mockStrategy), address(mockStrategy));
 
         mockStrategy.setAccountingModule(accountingModule);
 
@@ -397,6 +393,8 @@ contract AccountingModuleHookTest is Test {
     }
 
     function test_getConfig_returns_expected_config() public {
+        assertEq(accountingModuleHook.VERSION(), "0.2.0");
+
         IHooks.Config memory config = accountingModuleHook.getConfig();
         assertFalse(config.beforeDeposit, "beforeDeposit should be false");
         assertTrue(config.afterDeposit, "afterDeposit should be true");

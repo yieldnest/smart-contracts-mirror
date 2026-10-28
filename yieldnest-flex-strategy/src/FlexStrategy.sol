@@ -11,6 +11,7 @@ interface IFlexStrategy {
     error NoAccountingModule();
     error InvariantViolation();
     error AccountingTokenMismatch();
+    error AccountingModuleMismatch();
 
     event AccountingModuleUpdated(address newValue, address oldValue);
 
@@ -117,21 +118,25 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
     function setAccountingModule(address accountingModule_) external virtual onlyRole(ACCOUNTING_MODULE_MANAGER_ROLE) {
         if (accountingModule_ == address(0)) revert ZeroAddress();
 
+        IAccountingModule newAccounting = IAccountingModule(accountingModule_);
+        if (newAccounting.strategy() != address(this)) revert AccountingModuleMismatch();
+        if (newAccounting.safe() == address(0)) revert ZeroAddress();
+
         FlexStrategyStorage storage flexStorage = _getFlexStrategyStorage();
         emit AccountingModuleUpdated(accountingModule_, address(flexStorage.accountingModule));
 
         IAccountingModule oldAccounting = flexStorage.accountingModule;
 
         if (address(oldAccounting) != address(0)) {
-            IERC20(asset()).approve(address(oldAccounting), 0);
+            IERC20(asset()).forceApprove(address(oldAccounting), 0);
 
-            if (IAccountingModule(accountingModule_).accountingToken() != oldAccounting.accountingToken()) {
+            if (newAccounting.accountingToken() != oldAccounting.accountingToken()) {
                 revert AccountingTokenMismatch();
             }
         }
 
-        flexStorage.accountingModule = IAccountingModule(accountingModule_);
-        IERC20(asset()).approve(accountingModule_, type(uint256).max);
+        flexStorage.accountingModule = newAccounting;
+        IERC20(asset()).forceApprove(accountingModule_, type(uint256).max);
     }
 
     /**
@@ -140,6 +145,9 @@ contract FlexStrategy is IFlexStrategy, BaseStrategy {
      * @return availableAssets The available amount of assets.
      * @dev Overriden. This function is used to calculate the available assets for a given asset,
      *      It returns the balance of the asset in the associated SAFE.
+     *      This assumes the strategy only accepts the base asset and the non-depositable accounting token.
+     *      If additional depositable assets are enabled, base-asset availability may exceed the strategy's
+     *      accounting token balance and overstate what the accounting module can withdraw.
      */
     function _availableAssets(address asset_) internal view virtual override returns (uint256 availableAssets) {
         address baseAsset = asset();

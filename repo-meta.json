@@ -10,9 +10,9 @@
     },
     "yieldnest-flex-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-flex-strategy.git",
-      "branch": "feature/vault-v0.4.0-strategy-v0.3.0",
-      "commit": "b4784e38239835275f0c935698123e4dd02f9f33",
-      "commit_message": "Refactor rewards sweeper snapshot role checks"
+      "branch": "feature/yield-module",
+      "commit": "11a98689658e55a5018eee6ce8828bb2b3ef69fd",
+      "commit_message": "test: add concrete APY reward calculation examples"
     },
     "yieldnest-erc4626-wrapper-strategy": {
       "url": "https://github.com/yieldnest/yieldnest-erc4626-wrapper-strategy.git",
